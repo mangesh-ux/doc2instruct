@@ -7,7 +7,7 @@ input:
   books_dir: "./books"
 
   # Which files in books_dir should be processed.
-  # Pinned to your current scanned test book for deterministic dry runs.
+  # Pinned to current scanned test book for deterministic dry runs.
   glob: "The Mysteries of Life and Death (scan).pdf"
 
 # ------------------------------------------------------------------------------
@@ -22,8 +22,8 @@ runtime:
   temperature: 0.2
 
   # Page cap per book to control spend.
-  # In --dry-run mode, pipeline still limits to 1 page per book.
-  max_pages_per_book: 6
+  # Set high enough to cover full book runs.
+  max_pages_per_book: 100
 
   # First-pass render DPI for PDF page image conversion.
   dpi: 220
@@ -47,6 +47,47 @@ runtime:
 
   # Where prompt logs are written when log_prompts is true.
   prompt_log_path: "./output/prompt_log.jsonl"
+
+  # If true, logs API call telemetry (latency/tokens/cost estimate) to JSONL.
+  log_api_metrics: true
+
+  # Path for per-call API telemetry logs.
+  api_metrics_log_path: "./output/api_metrics.jsonl"
+
+  # Pricing used for generation call cost estimation (USD per 1M tokens).
+  # Update these values to match your active provider pricing.
+  generation_input_cost_per_1m_tokens_usd: 5.0
+  generation_output_cost_per_1m_tokens_usd: 15.0
+
+  # Pricing used for judge/critique call cost estimation (USD per 1M tokens).
+  judge_input_cost_per_1m_tokens_usd: 5.0
+  judge_output_cost_per_1m_tokens_usd: 15.0
+
+  # If true, persist checkpoint state after each processed page.
+  checkpoint_enabled: true
+
+  # Checkpoint path used for crash-safe resume.
+  checkpoint_path: "./output/run_checkpoint.json"
+
+  # If true, logs are append-only (safer for recovery and audit history).
+  append_mode: true
+
+  # Fallback log for failed write attempts.
+  failed_writes_log_path: "./output/failed_writes.jsonl"
+
+  # Parallel workers for model-based QA critique stage.
+  # 1 disables parallel critique, 3-6 is a practical speedup range.
+  parallel_critique_workers: 4
+
+  # Max wait for all parallel critique futures for one page.
+  # If exceeded, unfinished critique tasks are cancelled and marked failed.
+  parallel_future_timeout_seconds: 300
+
+  # JSONL process log with stage-level events and per-call success messages.
+  process_log_path: "./output/process_log.jsonl"
+
+  # If true, also prints process events to console.
+  verbose_success_logs: true
 
 # ------------------------------------------------------------------------------
 # DATASET SHAPE SETTINGS
@@ -104,3 +145,42 @@ prompts:
     Only use information visible on the page image.
     If data is unclear or missing, avoid fabricating specifics.
     Return strictly valid JSON matching the schema.
+
+# ------------------------------------------------------------------------------
+# QUALITY GATE SETTINGS
+# ------------------------------------------------------------------------------
+quality:
+  # Master switch for post-generation filtering.
+  enabled: true
+
+  # If true, runs a second model pass per QA item for self-critique.
+  # This improves quality but increases cost and latency.
+  use_model_self_critique: true
+
+  # Model used for critique pass.
+  # You can set this to a stronger model than runtime.model.
+  critique_model: "gpt-4.1"
+
+  # Reject if grounding score is below this threshold (0..1).
+  min_grounding_score: 0.55
+
+  # Reject if usefulness score is below this threshold (0..1).
+  min_usefulness_score: 0.5
+
+  # Near-duplicate threshold for QA pair similarity (0..1).
+  duplicate_similarity_threshold: 0.9
+
+  # If PDF text is extractable, require citation quote to appear in page text.
+  require_citation_match_if_text_available: true
+
+  # Per-item quality decision log output.
+  quality_log_path: "./output/quality_log.jsonl"
+
+# ------------------------------------------------------------------------------
+# ANALYTICS SETTINGS
+# ------------------------------------------------------------------------------
+analytics:
+  # End-of-run report with yield, distribution, duplicate rate, etc.
+  report_path: "./output/analytics_report.json"
+  # Dedicated token summary report.
+  token_stats_path: "./output/token_stats.json"

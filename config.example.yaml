@@ -13,6 +13,20 @@ runtime:
   sleep_seconds_between_requests: 0.4
   log_prompts: true
   prompt_log_path: "./output/prompt_log.jsonl"
+  log_api_metrics: true
+  api_metrics_log_path: "./output/api_metrics.jsonl"
+  generation_input_cost_per_1m_tokens_usd: 5.0
+  generation_output_cost_per_1m_tokens_usd: 15.0
+  judge_input_cost_per_1m_tokens_usd: 5.0
+  judge_output_cost_per_1m_tokens_usd: 15.0
+  checkpoint_enabled: true
+  checkpoint_path: "./output/run_checkpoint.json"
+  append_mode: true
+  failed_writes_log_path: "./output/failed_writes.jsonl"
+  parallel_critique_workers: 4
+  parallel_future_timeout_seconds: 300
+  process_log_path: "./output/process_log.jsonl"
+  verbose_success_logs: true
 
 dataset:
   output_path: "./output/chatml_dataset.jsonl"
@@ -43,3 +57,18 @@ prompts:
     Only use information visible on the page image.
     If data is unclear or missing, avoid fabricating specifics.
     Return strictly valid JSON matching the schema.
+
+quality:
+  enabled: true
+  use_model_self_critique: true
+  # Set this to a stronger model than runtime.model if you want a bigger judge.
+  critique_model: "gpt-4.1"
+  min_grounding_score: 0.55
+  min_usefulness_score: 0.5
+  duplicate_similarity_threshold: 0.9
+  require_citation_match_if_text_available: true
+  quality_log_path: "./output/quality_log.jsonl"
+
+analytics:
+  report_path: "./output/analytics_report.json"
+  token_stats_path: "./output/token_stats.json"

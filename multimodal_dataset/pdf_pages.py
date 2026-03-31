@@ -50,3 +50,23 @@ def render_single_page_as_data_url(pdf_path: Path, *, page_number: int, dpi: int
         return _render_page_data_url(doc, page_index=page_index, dpi=dpi)
     finally:
         doc.close()
+
+
+def extract_page_text(pdf_path: Path, *, page_number: int) -> str:
+    doc = fitz.open(pdf_path)
+    try:
+        page_index = page_number - 1
+        if page_index < 0 or page_index >= doc.page_count:
+            raise IndexError(f"Invalid page number {page_number} for {pdf_path}")
+        page = doc.load_page(page_index)
+        return page.get_text("text")
+    finally:
+        doc.close()
+
+
+def get_pdf_page_count(pdf_path: Path) -> int:
+    doc = fitz.open(pdf_path)
+    try:
+        return int(doc.page_count)
+    finally:
+        doc.close()
