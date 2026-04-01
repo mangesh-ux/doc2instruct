@@ -1,3 +1,5 @@
+"""PDF rendering and extraction helpers used by the pipeline."""
+
 from __future__ import annotations
 
 import base64
@@ -16,6 +18,7 @@ class PageImage:
 
 
 def _render_page_data_url(doc: fitz.Document, *, page_index: int, dpi: int) -> str:
+    """Render one PDF page to a PNG data URL at the requested DPI."""
     scale = dpi / 72.0
     matrix = fitz.Matrix(scale, scale)
     page = doc.load_page(page_index)
@@ -28,6 +31,7 @@ def _render_page_data_url(doc: fitz.Document, *, page_index: int, dpi: int) -> s
 def iter_pdf_pages_as_data_urls(
     pdf_path: Path, *, dpi: int, max_pages: int
 ) -> Iterator[PageImage]:
+    """Yield rendered page images up to max_pages for a given PDF."""
     doc = fitz.open(pdf_path)
     max_page_count = min(doc.page_count, max_pages)
 
@@ -42,6 +46,7 @@ def iter_pdf_pages_as_data_urls(
 
 
 def render_single_page_as_data_url(pdf_path: Path, *, page_number: int, dpi: int) -> str:
+    """Render a specific 1-indexed page number to PNG data URL."""
     doc = fitz.open(pdf_path)
     try:
         page_index = page_number - 1
@@ -53,6 +58,7 @@ def render_single_page_as_data_url(pdf_path: Path, *, page_number: int, dpi: int
 
 
 def extract_page_text(pdf_path: Path, *, page_number: int) -> str:
+    """Extract plain text from a specific PDF page for grounding checks."""
     doc = fitz.open(pdf_path)
     try:
         page_index = page_number - 1
@@ -65,6 +71,7 @@ def extract_page_text(pdf_path: Path, *, page_number: int) -> str:
 
 
 def get_pdf_page_count(pdf_path: Path) -> int:
+    """Return total page count for planning/estimation."""
     doc = fitz.open(pdf_path)
     try:
         return int(doc.page_count)

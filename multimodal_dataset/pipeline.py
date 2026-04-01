@@ -1,3 +1,9 @@
+"""Main orchestration module for doc-to-instruction dataset generation.
+
+This file owns the end-to-end pipeline: page rendering, generation calls,
+quality gating, telemetry, checkpoint/resume behavior, and final analytics.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -36,6 +42,7 @@ UNUSABLE_STATUSES = {"blank", "unreadable"}
 
 
 def _build_run_id() -> str:
+    """Create a human-readable run identifier used across artifacts."""
     return time.strftime("run_%Y%m%d_%H%M%S")
 
 
@@ -45,6 +52,7 @@ def _safe_append_jsonl(
     record: dict[str, Any],
     failed_writes_path: Path,
 ) -> None:
+    """Append a JSONL record; if write fails, log fallback failure record."""
     try:
         append_jsonl(path, record)
     except Exception as exc:  # pragma: no cover - defensive fallback
@@ -58,6 +66,7 @@ def _safe_append_jsonl(
 
 
 def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    """Atomically write a JSON file via temp file + replace."""
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.with_suffix(path.suffix + ".tmp")
     with temp_path.open("w", encoding="utf-8") as f:
@@ -76,6 +85,7 @@ def _log_process_event(
     payload: dict[str, Any],
     verbose: bool,
 ) -> None:
+    """Log structured lifecycle/process events to process_log.jsonl."""
     entry = {
         "timestamp_epoch": int(time.time()),
         "run_id": run_id,
@@ -92,6 +102,7 @@ def _log_process_event(
 
 
 def _load_checkpoint(path: Path) -> dict[str, Any] | None:
+    """Load checkpoint state if present, otherwise return None."""
     if not path.exists():
         return None
     with path.open("r", encoding="utf-8") as f:
@@ -99,10 +110,12 @@ def _load_checkpoint(path: Path) -> dict[str, Any] | None:
 
 
 def _save_checkpoint(path: Path, state: dict[str, Any]) -> None:
+    """Persist checkpoint state atomically."""
     _atomic_write_json(path, state)
 
 
 def _build_user_prompt(cfg: AppConfig, *, book_name: str, page_number: int) -> str:
+    """Build the generation user prompt from config and page context."""
     variety = json.dumps(cfg.dataset.variety, ensure_ascii=False)
     citation = json.dumps(cfg.dataset.citation, ensure_ascii=False)
     return (
@@ -123,6 +136,7 @@ def _build_user_prompt(cfg: AppConfig, *, book_name: str, page_number: int) -> s
 
 
 def get_prompt_preview(cfg: AppConfig, *, book_name: str, page_number: int) -> dict[str, str]:
+    """Expose generated prompts for CLI inspection/debug."""
     return {
         "system_prompt": cfg.prompts.system,
         "user_prompt": _build_user_prompt(cfg, book_name=book_name, page_number=page_number),
@@ -130,6 +144,7 @@ def get_prompt_preview(cfg: AppConfig, *, book_name: str, page_number: int) -> d
 
 
 def _iter_books(cfg: AppConfig) -> list[Path]:
+    """Resolve and validate target PDF list from config input block."""
     books_dir = cfg.input.books_dir
     if not books_dir.exists():
         raise FileNotFoundError(f"Books directory not found: {books_dir}")
@@ -147,6 +162,7 @@ def _record_skip(
     reason: str,
     attempt_dpi: int,
 ) -> None:
+    """Write skipped page record when page status is unusable."""
     _safe_append_jsonl(
         path=skipped_path,
         failed_writes_path=failed_writes_path,
@@ -174,6 +190,7 @@ def _log_prompt_request(
     system_prompt: str,
     user_prompt: str,
 ) -> None:
+    """Write prompt payload for reproducibility/debugging."""
     _safe_append_jsonl(
         path=prompt_log_path,
         failed_writes_path=failed_writes_path,
@@ -201,6 +218,7 @@ def _log_api_metric(
     attempt: int,
     metrics: dict[str, Any],
 ) -> None:
+    """Write one API call telemetry record (latency/tokens/cost)."""
     _safe_append_jsonl(
         path=api_metrics_log_path,
         failed_writes_path=failed_writes_path,
@@ -227,6 +245,7 @@ def _generate_with_retry(
     page_number: int,
     initial_image_data_url: str,
 ) -> tuple[dict[str, Any], int, str, list[dict[str, Any]]]:
+    """Generate QA payload with optional higher-DPI retry for unusable pages."""
     preview = get_prompt_preview(cfg, book_name=book_name, page_number=page_number)
     prompt = preview["user_prompt"]
     system_prompt = preview["system_prompt"]
@@ -312,6 +331,7 @@ def _log_quality_decision(
     grounding_score: float,
     usefulness_score: float,
 ) -> None:
+    """Write per-item quality gate verdict for auditability."""
     _safe_append_jsonl(
         path=quality_log_path,
         failed_writes_path=failed_writes_path,
@@ -337,6 +357,7 @@ def _run_critique_task(
     final_image_data_url: str,
     qa_item: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Execute one judge-model critique task (thread-safe client per task)."""
     # Use a per-task client to avoid cross-thread client contention.
     thread_client = OpenAI(api_key=api_key, timeout=timeout_seconds)
     return critique_qa_item(
@@ -354,6 +375,7 @@ def _run_critique_task(
 
 
 def run_pipeline(config_path: Path, dry_run: bool, resume: bool) -> None:
+    """Run full pipeline with logging, checkpoints, quality gate, and analytics."""
     load_dotenv()
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -996,6 +1018,7 @@ def run_pipeline(config_path: Path, dry_run: bool, resume: bool) -> None:
 
 
 def main() -> None:
+    """CLI entrypoint for pipeline execution."""
     parser = argparse.ArgumentParser(
         description="Multimodal PDF-to-ChatML QnA dataset pipeline."
     )

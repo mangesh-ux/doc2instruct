@@ -1,3 +1,8 @@
+"""Prints the exact prompts generated from the YAML config.
+
+This helper is useful for reviewing prompt content before spending tokens.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -8,6 +13,7 @@ from multimodal_dataset.pipeline import get_prompt_preview
 
 
 def _resolve_book_name(config_books_dir: Path, glob_pattern: str, book_arg: str | None) -> str:
+    """Resolve the book name used in prompt preview."""
     if book_arg:
         return Path(book_arg).name
 
@@ -18,6 +24,7 @@ def _resolve_book_name(config_books_dir: Path, glob_pattern: str, book_arg: str 
 
 
 def main() -> None:
+    """CLI command that prints system + user prompts."""
     parser = argparse.ArgumentParser(
         description="Show the exact system/user prompts generated from config.yaml."
     )

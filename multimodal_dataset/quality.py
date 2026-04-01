@@ -1,3 +1,5 @@
+"""Quality and dedup helpers plus model-based critique call wrapper."""
+
 from __future__ import annotations
 
 import difflib
@@ -11,15 +13,18 @@ from multimodal_dataset.openai_client import _estimate_cost_usd, _extract_usage
 
 
 def normalize_text(value: str) -> str:
+    """Normalize whitespace/case for robust similarity checks."""
     lowered = value.lower().strip()
     return re.sub(r"\s+", " ", lowered)
 
 
 def text_similarity(a: str, b: str) -> float:
+    """Return approximate text similarity in [0, 1]."""
     return difflib.SequenceMatcher(a=normalize_text(a), b=normalize_text(b)).ratio()
 
 
 def has_citation_match(page_text: str, citation_quote: str) -> bool:
+    """Check whether citation_quote exists in extracted page text."""
     if not page_text.strip() or not citation_quote.strip():
         return False
     page_norm = normalize_text(page_text)
@@ -30,6 +35,7 @@ def has_citation_match(page_text: str, citation_quote: str) -> bool:
 
 
 def heuristic_usefulness_score(question: str, answer: str) -> float:
+    """Fast pre-score that penalizes trivial/underspecified QA pairs."""
     question_words = len(question.split())
     answer_words = len(answer.split())
     if question_words < 4 or answer_words < 8:
@@ -51,6 +57,7 @@ def critique_qa_item(
     input_cost_per_1m_tokens_usd: float,
     output_cost_per_1m_tokens_usd: float,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Run judge-model critique and return verdict + telemetry metrics."""
     critique_schema = {
         "type": "object",
         "properties": {

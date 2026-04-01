@@ -1,3 +1,5 @@
+"""OpenAI request helpers for generation calls plus telemetry extraction."""
+
 from __future__ import annotations
 
 import json
@@ -8,6 +10,7 @@ from openai import OpenAI
 
 
 def _qa_json_schema() -> dict[str, Any]:
+    """Schema for strict generation output validation."""
     return {
         "type": "object",
         "properties": {
@@ -44,6 +47,7 @@ def _qa_json_schema() -> dict[str, Any]:
 
 
 def _read_field(obj: Any, key: str, default: int = 0) -> int:
+    """Read numeric fields from either dict or SDK object."""
     if obj is None:
         return default
     if isinstance(obj, dict):
@@ -52,6 +56,7 @@ def _read_field(obj: Any, key: str, default: int = 0) -> int:
 
 
 def _extract_usage(response: Any) -> tuple[int, int]:
+    """Extract prompt/output token counts from a responses API object."""
     usage = getattr(response, "usage", None)
     return _read_field(usage, "input_tokens"), _read_field(usage, "output_tokens")
 
@@ -63,6 +68,7 @@ def _estimate_cost_usd(
     input_cost_per_1m_tokens_usd: float,
     output_cost_per_1m_tokens_usd: float,
 ) -> float:
+    """Compute rough request cost from token counts and configured rates."""
     return (
         (input_tokens / 1_000_000.0) * input_cost_per_1m_tokens_usd
         + (output_tokens / 1_000_000.0) * output_cost_per_1m_tokens_usd
@@ -80,6 +86,7 @@ def generate_qa_batch(
     input_cost_per_1m_tokens_usd: float,
     output_cost_per_1m_tokens_usd: float,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Run one multimodal generation call and return payload + call metrics."""
     started = time.perf_counter()
     response = client.responses.create(
         model=model,

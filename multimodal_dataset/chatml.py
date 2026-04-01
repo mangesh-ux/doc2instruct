@@ -1,3 +1,5 @@
+"""ChatML record formatting and durable JSONL writing utilities."""
+
 from __future__ import annotations
 
 import json
@@ -13,6 +15,7 @@ def qa_to_chatml_record(
     page_number: int,
     user_profile: str,
 ) -> dict[str, Any]:
+    """Convert one QA item into the project's ChatML JSON record format."""
     system_msg = "You are a helpful tutor grounded in source material."
     if user_profile:
         system_msg += f" Tailor style for this user profile: {user_profile}"
@@ -37,6 +40,7 @@ def qa_to_chatml_record(
 
 
 def append_jsonl(path: Path, record: dict[str, Any]) -> None:
+    """Append one JSON line and fsync to reduce data-loss risk."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")

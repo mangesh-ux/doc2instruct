@@ -1,3 +1,5 @@
+"""CLI entrypoint for running the dataset pipeline."""
+
 from multimodal_dataset.pipeline import main
 
 

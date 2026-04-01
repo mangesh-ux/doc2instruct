@@ -1,3 +1,5 @@
+"""Strongly-typed configuration loader for config.yaml."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -85,6 +87,7 @@ class AppConfig:
 
 
 def load_config(config_path: Path) -> AppConfig:
+    """Load YAML config and map it into typed dataclasses."""
     with config_path.open("r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
