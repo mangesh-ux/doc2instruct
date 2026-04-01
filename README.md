@@ -25,6 +25,86 @@ This project validates a simple idea:
 
 The pipeline renders each PDF page as an image and sends it directly to a multimodal model. This bypasses explicit OCR scripts and keeps extraction logic simple.
 
+## Architecture (current state)
+
+### High-level flow
+
+1) **Config + runtime bootstrap**
+- Loads `config.yaml` into typed config objects.
+- Loads API key from `.env`.
+- Resolves matching PDFs from `input.books_dir` + `input.glob`.
+- Initializes `run_id`, checkpoint state, and append/truncate behavior.
+
+2) **Page ingestion**
+- Converts each PDF page to an image data URL (`dpi`-controlled).
+- Runs generation prompt on each page.
+- If page is `blank`/`unreadable`, retries once at `retry_dpi`.
+
+3) **Generation stage**
+- Calls multimodal model with strict JSON schema output.
+- Collects per-call metrics: latency, input/output tokens, cost estimate.
+- Emits process events and API metrics logs.
+
+4) **Quality gate stage**
+- Filters exact/near-duplicates before critique.
+- Runs judge-model critique (optionally in parallel workers).
+- Applies acceptance rules:
+  - grounding threshold
+  - usefulness threshold
+  - citation-to-page-text match (when text is extractable)
+- Accepts/rejects each candidate with full audit logs.
+
+5) **Persistence + recovery**
+- Writes accepted records to ChatML JSONL.
+- Updates checkpoint after each processed page.
+- Uses append-mode and failed-write fallback logging for resilience.
+
+6) **Run finalization**
+- Writes analytics and token summary reports.
+- Marks checkpoint status as completed.
+- Emits final summary to console + process log.
+
+### Module responsibilities
+
+- `run.py`
+  - Thin CLI entrypoint for the pipeline.
+- `show_prompts.py`
+  - Prompt preview helper from config without running generation.
+- `multimodal_dataset/config.py`
+  - Typed config schema + YAML loader.
+- `multimodal_dataset/pdf_pages.py`
+  - PDF page rendering, text extraction, and page-count utilities.
+- `multimodal_dataset/openai_client.py`
+  - Generation API call wrapper + usage/cost metric extraction.
+- `multimodal_dataset/quality.py`
+  - Normalization/similarity, citation checks, usefulness heuristic, judge call.
+- `multimodal_dataset/chatml.py`
+  - ChatML record formatting + durable JSONL append (`fsync`).
+- `multimodal_dataset/analytics.py`
+  - Writes run-level analytics report JSON.
+- `multimodal_dataset/pipeline.py`
+  - End-to-end orchestration, logging, quality filtering, checkpointing, resume.
+
+### Logging and observability model
+
+- **Prompt trace**: `output/prompt_log.jsonl`
+- **API telemetry**: `output/api_metrics.jsonl`
+- **Quality decisions**: `output/quality_log.jsonl`
+- **Process lifecycle events**: `output/process_log.jsonl`
+- **Skipped pages**: `output/skipped_pages.jsonl`
+- **Fallback write failures**: `output/failed_writes.jsonl`
+- **Run analytics**: `output/analytics_report.json`
+- **Token breakdown**: `output/token_stats.json`
+- **Recovery state**: `output/run_checkpoint.json`
+
+### Parallelism and safety
+
+- Parallelism is applied to **judge/critique calls per page** via worker pool.
+- Each critique task uses its own client instance (avoids shared-client contention).
+- Futures have a page-level timeout; timed-out tasks are cancelled and rejected.
+- Checkpoint writes are atomic (`.tmp` + replace).
+- JSONL writes are append + flush + fsync for better crash resilience.
+
 ## Quick start
 
 1) Create and activate virtual environment.
