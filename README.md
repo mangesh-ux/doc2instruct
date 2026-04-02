@@ -4,6 +4,218 @@ doc2instruct turns long-form PDFs into grounded instruction-tuning data through 
 
 ## Overview
 
+The pipeline has two stages:
+
+1. **Stage 1 (pagewise):** Generate and filter grounded QnA from each page.
+2. **Stage 2 (cross-page):** Build deterministic evidence packs and synthesize multi-page QnA.
+
+It is designed for long runs and inspection:
+- strict JSON model outputs
+- quality gating for local and cross-page records
+- append-safe logging and checkpoint/resume
+- telemetry and analytics artifacts per run
+
+## Outputs
+
+- `output/chatml_dataset.jsonl`: main dataset output
+- `output/cross_page_chatml_dataset.jsonl`: cross-page records only
+- `output/page_artifacts.jsonl`: Stage 1 artifacts consumed by Stage 2
+- `output/skipped_pages.jsonl`: skipped blank/unreadable pages
+- `output/quality_log.jsonl`: Stage 1 quality decisions
+- `output/cross_page_quality_log.jsonl`: Stage 2 quality decisions
+- `output/prompt_log.jsonl`: model prompts (if enabled)
+- `output/api_metrics.jsonl`: API latency/tokens/cost metrics
+- `output/process_log.jsonl`: lifecycle and progress events
+- `output/analytics_report.json`: run analytics summary
+- `output/token_stats.json`: token summary by call type
+- `output/run_checkpoint.json`: resumable checkpoint state
+- `output/failed_writes.jsonl`: fallback write-failure records
+
+## Quick Start
+
+1) Create and activate a Python virtual environment.
+
+2) Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+3) Create `.env`:
+
+```bash
+copy .env.example .env
+```
+
+Then set:
+
+```env
+OPENAI_API_KEY=...
+```
+
+4) Create your runtime config:
+
+```bash
+copy config.example.yaml config.yaml
+```
+
+5) Put PDFs in `books/`.
+
+6) Run a cheap smoke test:
+
+```bash
+python run.py --config config.yaml --dry-run
+```
+
+7) Run full pipeline:
+
+```bash
+python run.py --config config.yaml
+```
+
+8) Resume if interrupted:
+
+```bash
+python run.py --config config.yaml --resume
+```
+
+Optional modes:
+
+```bash
+python run.py --config config.yaml --skip-cross-page
+python run.py --config config.yaml --cross-page-only --resume
+```
+
+## Configuration Reference
+
+This section explains each parameter in `config.yaml`.
+
+### `input`
+
+- `input.books_dir`: folder containing source PDFs.
+- `input.glob`: file pattern for selecting PDFs from `books_dir`.
+
+### `runtime`
+
+- `runtime.model`: model used for Stage 1 generation.
+- `runtime.temperature`: sampling randomness for Stage 1 generation.
+- `runtime.max_pages_per_book`: hard cap on processed pages per book.
+- `runtime.dpi`: base render DPI for page images.
+- `runtime.retry_dpi`: higher DPI used for unusable-page retry.
+- `runtime.max_unusable_retries`: retries when page status is blank/unreadable.
+- `runtime.request_timeout_seconds`: timeout for individual OpenAI calls.
+- `runtime.sleep_seconds_between_requests`: delay between page iterations.
+- `runtime.log_prompts`: whether to write prompt payloads to disk.
+- `runtime.prompt_log_path`: JSONL path for prompt logs.
+- `runtime.log_api_metrics`: whether to write API metrics per call.
+- `runtime.api_metrics_log_path`: JSONL path for API metrics.
+- `runtime.generation_input_cost_per_1m_tokens_usd`: price hint for generation input tokens.
+- `runtime.generation_output_cost_per_1m_tokens_usd`: price hint for generation output tokens.
+- `runtime.judge_input_cost_per_1m_tokens_usd`: price hint for critique input tokens.
+- `runtime.judge_output_cost_per_1m_tokens_usd`: price hint for critique output tokens.
+- `runtime.checkpoint_enabled`: enables resume state persistence.
+- `runtime.checkpoint_path`: checkpoint JSON file location.
+- `runtime.append_mode`: append to output/log files instead of truncating.
+- `runtime.failed_writes_log_path`: fallback JSONL for failed writes.
+- `runtime.parallel_critique_workers`: worker count for Stage 1 critique parallelism.
+- `runtime.parallel_future_timeout_seconds`: timeout for one page's critique futures.
+- `runtime.process_log_path`: JSONL path for process-level events.
+- `runtime.verbose_success_logs`: prints structured success events to console.
+
+### `dataset`
+
+- `dataset.output_path`: main ChatML output path.
+- `dataset.skipped_pages_output_path`: JSONL path for skipped pages.
+- `dataset.qas_per_page`: requested Stage 1 items per usable page.
+- `dataset.user_profile`: style hint injected into record/system context.
+- `dataset.variety`: preferences for question types/difficulty/answer style.
+- `dataset.citation`: citation policy hints passed to Stage 1 generation.
+
+### `prompts`
+
+- `prompts.system`: base system prompt for Stage 1 pagewise generation.
+
+### `quality` (Stage 1)
+
+- `quality.enabled`: enables Stage 1 quality gate logging/threshold checks.
+- `quality.use_model_self_critique`: enables model-based critique pass.
+- `quality.critique_model`: model used for Stage 1 critique.
+- `quality.min_grounding_score`: minimum grounding score to accept local item.
+- `quality.min_usefulness_score`: minimum usefulness score to accept local item.
+- `quality.duplicate_similarity_threshold`: near-duplicate rejection threshold.
+- `quality.require_citation_match_if_text_available`: requires citation match in extracted page text when text is present.
+- `quality.quality_log_path`: JSONL path for Stage 1 quality decisions.
+
+### `analytics`
+
+- `analytics.report_path`: JSON analytics summary output path.
+- `analytics.token_stats_path`: token accounting output path.
+
+### `cross_page` (Stage 2)
+
+- `cross_page.enabled`: enables Stage 2 synthesis pipeline.
+- `cross_page.min_pages_per_pack`: minimum pages required per evidence pack.
+- `cross_page.max_pages_per_pack`: maximum pages grouped in one evidence pack.
+- `cross_page.max_cross_page_qas_per_pack`: max generated items per pack.
+- `cross_page.max_evidence_quotes_per_item`: max quote entries allowed per item schema.
+- `cross_page.pack_overlap_window`: overlap between consecutive evidence packs.
+- `cross_page.use_local_qas_as_hints`: includes local QAs as optional hints in synthesis prompt.
+- `cross_page.synthesis_model`: model used for Stage 2 synthesis.
+- `cross_page.synthesis_temperature`: sampling randomness for Stage 2 synthesis.
+- `cross_page.output_path`: Stage 2 ChatML output path.
+- `cross_page.artifact_path`: Stage 1 artifact JSONL path used to build packs.
+- `cross_page.quality_log_path`: Stage 2 quality decision JSONL path.
+- `cross_page.require_quote_match_if_text_available`: requires synthesis quotes to match pack text.
+- `cross_page.min_cross_page_grounding_score`: minimum grounding score for cross-page item.
+- `cross_page.min_cross_page_usefulness_score`: minimum usefulness score for cross-page item.
+- `cross_page.min_multi_page_score`: minimum score for true multi-page dependency.
+- `cross_page.merge_into_final_dataset`: appends accepted cross-page records into `dataset.output_path`.
+
+## Fast Validation Checklist
+
+After `--dry-run`, confirm:
+
+- `output/chatml_dataset.jsonl` exists and has records
+- `output/analytics_report.json` exists
+- `output/process_log.jsonl` contains `run_started` and `run_completed`
+- if Stage 2 enabled, `output/page_artifacts.jsonl` exists
+
+## Output Interpretation
+
+- `local_candidates`: raw Stage 1 generated items before final filtering.
+- `local_accepted`: Stage 1 records accepted after quality checks.
+- `cross_page_candidates`: raw Stage 2 generated items before final filtering.
+- `cross_page_accepted`: Stage 2 records accepted after quality checks.
+- final dataset count is usually lower than candidates due to dedup/quality gates.
+
+## Project Structure
+
+- `run.py`: CLI entrypoint
+- `show_prompts.py`: prompt preview helper
+- `multimodal_dataset/pipeline.py`: end-to-end orchestration
+- `multimodal_dataset/config.py`: typed config loader
+- `multimodal_dataset/openai_client.py`: Stage 1 generation wrapper
+- `multimodal_dataset/quality.py`: local + cross-page critique utilities
+- `multimodal_dataset/pdf_pages.py`: page rendering and text extraction
+- `multimodal_dataset/chatml.py`: ChatML formatting and durable JSONL appends
+- `multimodal_dataset/analytics.py`: analytics writer
+- `multimodal_dataset/page_artifacts.py`: Stage 1 artifact builder
+- `multimodal_dataset/evidence_packs.py`: deterministic evidence pack builder
+- `multimodal_dataset/synthesis.py`: Stage 2 synthesis wrapper/schema
+
+## Notes
+
+- Start with `--dry-run` before processing many pages.
+- Keep `.env` private and never commit API keys.
+- Cost values are estimates derived from configured token prices.
+- `run_id` is written into metadata for run-level traceability.
+- Resume support depends on checkpoint files being preserved.
+# Multimodal PDF to ChatML Dataset Pipeline
+
+doc2instruct turns long-form PDFs into grounded instruction-tuning data through a hierarchical two-stage pipeline. It first generates high-quality QnA from individual pages, then builds deterministic evidence packs across related pages to synthesize multi-page supervision that a single-page prompt cannot capture. The result is a more reliable path from raw documents to ChatML datasets: explicit grounding, structured quality gates, detailed telemetry, and checkpoint-safe long runs.
+
+## Overview
+
 This project converts PDF books into ChatML training data with two stages:
 
 1. **Stage 1 (pagewise):** Generate grounded QnA from single pages.
