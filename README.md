@@ -1,3 +1,210 @@
+# Multimodal PDF to ChatML Dataset Pipeline
+
+This project converts PDF books into ChatML training data using a two-stage workflow:
+
+1. **Stage 1 (pagewise):** Generate grounded QnA from single pages.
+2. **Stage 2 (cross-page):** Build evidence packs and synthesize multi-page QnA.
+
+The design focuses on reliability: strict JSON outputs, quality gates, detailed logs, and checkpoint/resume support.
+
+## What This Produces
+
+- `output/chatml_dataset.jsonl`: main dataset output
+- `output/cross_page_chatml_dataset.jsonl`: cross-page records only
+- `output/page_artifacts.jsonl`: Stage 1 accepted page artifacts
+- `output/skipped_pages.jsonl`: unusable/blank page log
+- `output/quality_log.jsonl`: Stage 1 quality decisions
+- `output/cross_page_quality_log.jsonl`: Stage 2 quality decisions
+- `output/prompt_log.jsonl`: prompt trace (optional)
+- `output/api_metrics.jsonl`: API latency/token/cost telemetry
+- `output/process_log.jsonl`: process lifecycle events
+- `output/analytics_report.json`: run analytics
+- `output/token_stats.json`: token summary by call type
+- `output/run_checkpoint.json`: checkpoint state for resume
+- `output/failed_writes.jsonl`: fallback write-failure log
+
+## How It Works
+
+### Stage 1: Local Grounding
+
+- Render each PDF page to an image data URL.
+- Prompt the model to generate QnA from that single page.
+- Retry blank/unreadable pages at higher DPI when configured.
+- Run quality filters:
+  - duplicate and near-duplicate rejection
+  - model critique (optional)
+  - citation checks against extracted page text
+- Write accepted local records to ChatML.
+- Save per-page artifacts for Stage 2.
+
+### Stage 2: Cross-Page Synthesis
+
+- Build deterministic evidence packs from Stage 1 artifacts using:
+  - adjacent page windowing
+  - lexical overlap
+  - heading continuity
+- Synthesize cross-page QnA from evidence packs.
+- Require evidence-based multi-page reasoning in output schema.
+- Run cross-page quality checks for:
+  - grounding
+  - usefulness
+  - true multi-page dependency
+  - quote/page consistency
+  - duplicate similarity
+- Write cross-page results to a separate output file, and optionally merge into main output.
+
+## Quick Start
+
+1) Create and activate a virtual environment.
+
+2) Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+3) Create env file:
+
+```bash
+copy .env.example .env
+```
+
+Then set your key in `.env`:
+
+```env
+OPENAI_API_KEY=...
+```
+
+4) Create config:
+
+```bash
+copy config.example.yaml config.yaml
+```
+
+5) Put PDF files in `books/`.
+
+6) Run a cheap smoke test:
+
+```bash
+python run.py --config config.yaml --dry-run
+```
+
+7) Optional prompt preview:
+
+```bash
+python show_prompts.py --config config.yaml --page 1
+```
+
+8) Run full pipeline:
+
+```bash
+python run.py --config config.yaml
+```
+
+9) Resume from checkpoint:
+
+```bash
+python run.py --config config.yaml --resume
+```
+
+10) Optional mode flags:
+
+```bash
+python run.py --config config.yaml --skip-cross-page
+python run.py --config config.yaml --cross-page-only --resume
+```
+
+## Fast Validation Checklist
+
+After a test run, verify:
+
+- `output/chatml_dataset.jsonl` exists
+- `output/analytics_report.json` exists
+- `output/process_log.jsonl` contains `run_started` and `run_completed`
+- if cross-page is enabled, `output/page_artifacts.jsonl` exists
+
+## Configuration Areas
+
+### Core Runtime
+
+- `runtime.model`
+- `runtime.max_pages_per_book`
+- `runtime.dpi`
+- `runtime.retry_dpi`
+- `runtime.max_unusable_retries`
+- `runtime.request_timeout_seconds`
+- `runtime.parallel_critique_workers`
+- `runtime.parallel_future_timeout_seconds`
+
+### Stage 1 Dataset
+
+- `dataset.output_path`
+- `dataset.qas_per_page`
+- `dataset.user_profile`
+- `dataset.variety`
+- `dataset.citation`
+
+### Stage 1 Quality
+
+- `quality.enabled`
+- `quality.use_model_self_critique`
+- `quality.critique_model`
+- `quality.min_grounding_score`
+- `quality.min_usefulness_score`
+- `quality.duplicate_similarity_threshold`
+- `quality.require_citation_match_if_text_available`
+
+### Stage 2 Cross-Page
+
+- `cross_page.enabled`
+- `cross_page.min_pages_per_pack`
+- `cross_page.max_pages_per_pack`
+- `cross_page.pack_overlap_window`
+- `cross_page.max_cross_page_qas_per_pack`
+- `cross_page.max_evidence_quotes_per_item`
+- `cross_page.use_local_qas_as_hints`
+- `cross_page.synthesis_model`
+- `cross_page.synthesis_temperature`
+- `cross_page.output_path`
+- `cross_page.artifact_path`
+- `cross_page.quality_log_path`
+- `cross_page.require_quote_match_if_text_available`
+- `cross_page.min_cross_page_grounding_score`
+- `cross_page.min_cross_page_usefulness_score`
+- `cross_page.min_multi_page_score`
+- `cross_page.merge_into_final_dataset`
+
+## Output Interpretation
+
+- `local_candidates`: raw Stage 1 generated items before final filtering
+- `local_accepted`: Stage 1 records that passed quality gate
+- `cross_page_candidates`: raw Stage 2 generated items before final filtering
+- `cross_page_accepted`: Stage 2 records that passed cross-page quality gate
+- final dataset count is usually lower than candidate counts due to filtering
+
+## Project Structure
+
+- `run.py`: CLI entrypoint
+- `show_prompts.py`: prompt preview utility
+- `multimodal_dataset/pipeline.py`: main orchestration
+- `multimodal_dataset/config.py`: typed config loader
+- `multimodal_dataset/openai_client.py`: generation API wrapper
+- `multimodal_dataset/quality.py`: quality logic + critique wrappers
+- `multimodal_dataset/pdf_pages.py`: rendering and text extraction
+- `multimodal_dataset/chatml.py`: record formatting and JSONL append
+- `multimodal_dataset/analytics.py`: analytics writer
+- `multimodal_dataset/page_artifacts.py`: Stage 1 page artifact builder
+- `multimodal_dataset/evidence_packs.py`: deterministic evidence pack builder
+- `multimodal_dataset/synthesis.py`: Stage 2 synthesis wrapper/schema
+
+## Notes
+
+- Use `--dry-run` before longer runs.
+- Keep `.env` private and never commit API keys.
+- PDF files in `books/` are ignored by git.
+- Cost metrics are estimates based on configured token prices.
+- `run_id` is attached to accepted records for traceability.
+- Checkpoint/resume is designed for long-running jobs.
 # Multimodal PDF -> ChatML Dataset Pipeline
 
 This project validates a simple idea:
@@ -20,6 +227,9 @@ This project validates a simple idea:
 - `output/run_checkpoint.json`: crash-safe checkpoint for resume
 - `output/failed_writes.jsonl`: fallback log when a file write fails
 - `output/process_log.jsonl`: end-to-end process events and per-call success logs
+- `output/page_artifacts.jsonl`: Stage-1 accepted page artifacts for synthesis
+- `output/cross_page_chatml_dataset.jsonl`: Stage-2 cross-page ChatML records
+- `output/cross_page_quality_log.jsonl`: Stage-2 quality decisions
 
 ## Why this avoids OCR pain
 
@@ -105,6 +315,15 @@ The pipeline renders each PDF page as an image and sends it directly to a multim
 - Checkpoint writes are atomic (`.tmp` + replace).
 - JSONL writes are append + flush + fsync for better crash resilience.
 
+### Stage 2: hierarchical cross-page synthesis
+
+- Stage 1 local generation and quality gate remain unchanged.
+- Accepted local page outputs are materialized as `page_artifacts.jsonl`.
+- Deterministic evidence packs are built from related pages (adjacency + overlap + heading continuity).
+- Stage 2 synthesis generates only evidence-grounded multi-page items.
+- A dedicated cross-page quality gate validates grounding, usefulness, and multi-page dependency.
+- Cross-page outputs are written separately and can also be merged into the final dataset.
+
 ## Quick start
 
 1) Create and activate virtual environment.
@@ -157,6 +376,13 @@ python run.py --config config.yaml
 
 ```bash
 python run.py --config config.yaml --resume
+```
+
+10) Optional mode flags:
+
+```bash
+python run.py --config config.yaml --skip-cross-page
+python run.py --config config.yaml --cross-page-only --resume
 ```
 
 Output defaults to `output/chatml_dataset.jsonl`.
@@ -223,6 +449,18 @@ Parallel critique futures have a safety timeout; stalled tasks are cancelled and
 - `quality.quality_log_path`: per-item quality decision log
 - `analytics.report_path`: output location for analytics summary JSON
 - `analytics.token_stats_path`: output location for token summary JSON
+- `cross_page.enabled`: enable/disable Stage-2 cross-page synthesis
+- `cross_page.min_pages_per_pack` / `max_pages_per_pack`: evidence pack sizing
+- `cross_page.max_cross_page_qas_per_pack`: synthesis item cap per pack
+- `cross_page.use_local_qas_as_hints`: use local QAs only as optional hints
+- `cross_page.synthesis_model`: model used for Stage-2 synthesis
+- `cross_page.output_path`: cross-page dataset output path
+- `cross_page.artifact_path`: page artifact output path
+- `cross_page.quality_log_path`: cross-page quality decisions output path
+- `cross_page.min_cross_page_grounding_score`: cross-page grounding threshold
+- `cross_page.min_cross_page_usefulness_score`: cross-page usefulness threshold
+- `cross_page.min_multi_page_score`: threshold for true multi-page reasoning
+- `cross_page.merge_into_final_dataset`: also append cross-page records into main dataset
 
 ## Project structure
 
@@ -233,6 +471,9 @@ Parallel critique futures have a safety timeout; stalled tasks are cancelled and
 - `multimodal_dataset/pdf_pages.py`: PDF page rendering to image data URLs
 - `multimodal_dataset/quality.py`: quality scoring and duplicate utilities
 - `multimodal_dataset/analytics.py`: analytics report writer
+- `multimodal_dataset/page_artifacts.py`: stage-1 page artifact construction
+- `multimodal_dataset/evidence_packs.py`: deterministic evidence pack builder
+- `multimodal_dataset/synthesis.py`: cross-page synthesis API wrapper/schema
 - `config.yaml`: your local runnable config
 - `config.example.yaml`: template config for sharing
 

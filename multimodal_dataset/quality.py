@@ -130,3 +130,88 @@ def critique_qa_item(
         "estimated_cost_usd": round(estimated_cost, 8),
     }
     return json.loads(response.output_text), metrics
+
+
+def critique_cross_page_item(
+    *,
+    client: OpenAI,
+    model: str,
+    evidence_pack: dict[str, Any],
+    item: dict[str, Any],
+    input_cost_per_1m_tokens_usd: float,
+    output_cost_per_1m_tokens_usd: float,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Critique cross-page item for grounding, usefulness, and multi-page validity."""
+    critique_schema = {
+        "type": "object",
+        "properties": {
+            "grounding_score": {"type": "number"},
+            "usefulness_score": {"type": "number"},
+            "multi_page_score": {"type": "number"},
+            "grounded": {"type": "boolean"},
+            "useful": {"type": "boolean"},
+            "truly_multi_page": {"type": "boolean"},
+            "concerns": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": [
+            "grounding_score",
+            "usefulness_score",
+            "multi_page_score",
+            "grounded",
+            "useful",
+            "truly_multi_page",
+            "concerns",
+        ],
+        "additionalProperties": False,
+    }
+    page_texts = [
+        {"page": p.get("page"), "text": str(p.get("text", ""))[:2000]}
+        for p in evidence_pack.get("page_texts", [])
+    ]
+    user_prompt = (
+        "Critique this cross-page QA item using only the provided evidence pack.\n"
+        "Score in [0,1]. truly_multi_page=true only if answer requires multiple pages.\n"
+        f"Evidence pack:\n{json.dumps(page_texts, ensure_ascii=False)}\n"
+        f"Item:\n{json.dumps(item, ensure_ascii=False)}"
+    )
+    started = time.perf_counter()
+    response = client.responses.create(
+        model=model,
+        temperature=0,
+        input=[
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": "You are a strict cross-page dataset quality auditor.",
+                    }
+                ],
+            },
+            {"role": "user", "content": [{"type": "input_text", "text": user_prompt}]},
+        ],
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": "cross_page_critique",
+                "schema": critique_schema,
+                "strict": True,
+            }
+        },
+    )
+    latency_ms = int((time.perf_counter() - started) * 1000)
+    input_tokens, output_tokens = _extract_usage(response)
+    estimated_cost = _estimate_cost_usd(
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        input_cost_per_1m_tokens_usd=input_cost_per_1m_tokens_usd,
+        output_cost_per_1m_tokens_usd=output_cost_per_1m_tokens_usd,
+    )
+    metrics = {
+        "model": model,
+        "latency_ms": latency_ms,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "estimated_cost_usd": round(estimated_cost, 8),
+    }
+    return json.loads(response.output_text), metrics

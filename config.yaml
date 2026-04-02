@@ -184,3 +184,38 @@ analytics:
   report_path: "./output/analytics_report.json"
   # Dedicated token summary report.
   token_stats_path: "./output/token_stats.json"
+
+# ------------------------------------------------------------------------------
+# CROSS-PAGE SYNTHESIS SETTINGS (Stage 2)
+# ------------------------------------------------------------------------------
+cross_page:
+  # Enables evidence-pack based multi-page synthesis.
+  enabled: true
+
+  # Evidence pack sizing.
+  min_pages_per_pack: 2
+  max_pages_per_pack: 3
+  pack_overlap_window: 1
+
+  # Generation limits and evidence constraints.
+  max_cross_page_qas_per_pack: 3
+  max_evidence_quotes_per_item: 3
+  use_local_qas_as_hints: true
+
+  # Model configuration for synthesis pass.
+  synthesis_model: "gpt-4.1"
+  synthesis_temperature: 0.1
+
+  # Stage-2 artifacts.
+  output_path: "./output/cross_page_chatml_dataset.jsonl"
+  artifact_path: "./output/page_artifacts.jsonl"
+  quality_log_path: "./output/cross_page_quality_log.jsonl"
+
+  # Grounding controls.
+  require_quote_match_if_text_available: true
+  min_cross_page_grounding_score: 0.6
+  min_cross_page_usefulness_score: 0.55
+  min_multi_page_score: 0.6
+
+  # If true, accepted cross-page items are appended into dataset.output_path too.
+  merge_into_final_dataset: true

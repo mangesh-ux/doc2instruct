@@ -72,3 +72,22 @@ quality:
 analytics:
   report_path: "./output/analytics_report.json"
   token_stats_path: "./output/token_stats.json"
+
+cross_page:
+  enabled: true
+  min_pages_per_pack: 2
+  max_pages_per_pack: 3
+  max_cross_page_qas_per_pack: 3
+  max_evidence_quotes_per_item: 3
+  pack_overlap_window: 1
+  use_local_qas_as_hints: true
+  synthesis_model: "gpt-4.1"
+  synthesis_temperature: 0.1
+  output_path: "./output/cross_page_chatml_dataset.jsonl"
+  artifact_path: "./output/page_artifacts.jsonl"
+  quality_log_path: "./output/cross_page_quality_log.jsonl"
+  require_quote_match_if_text_available: true
+  min_cross_page_grounding_score: 0.6
+  min_cross_page_usefulness_score: 0.55
+  min_multi_page_score: 0.6
+  merge_into_final_dataset: true

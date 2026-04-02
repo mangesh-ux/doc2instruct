@@ -14,6 +14,11 @@ def qa_to_chatml_record(
     book_name: str,
     page_number: int,
     user_profile: str,
+    source_pages: list[int] | None = None,
+    evidence_quotes: list[dict[str, Any]] | None = None,
+    synthesis_type: str | None = None,
+    record_level: str = "local",
+    pack_id: str | None = None,
 ) -> dict[str, Any]:
     """Convert one QA item into the project's ChatML JSON record format."""
     system_msg = "You are a helpful tutor grounded in source material."
@@ -32,9 +37,14 @@ def qa_to_chatml_record(
         "metadata": {
             "source_book": book_name,
             "source_page": page_number,
+            "source_pages": source_pages or [page_number],
             "question_type": qa_item.get("question_type", ""),
             "difficulty": qa_item.get("difficulty", ""),
             "citation_quote": qa_item.get("citation_quote", ""),
+            "evidence_quotes": evidence_quotes or [],
+            "synthesis_type": synthesis_type or "",
+            "record_level": record_level,
+            "pack_id": pack_id or "",
         },
     }
 

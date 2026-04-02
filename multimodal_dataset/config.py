@@ -77,6 +77,27 @@ class AnalyticsConfig:
 
 
 @dataclass
+class CrossPageConfig:
+    enabled: bool
+    min_pages_per_pack: int
+    max_pages_per_pack: int
+    max_cross_page_qas_per_pack: int
+    max_evidence_quotes_per_item: int
+    pack_overlap_window: int
+    use_local_qas_as_hints: bool
+    synthesis_model: str
+    synthesis_temperature: float
+    output_path: Path
+    artifact_path: Path
+    quality_log_path: Path
+    require_quote_match_if_text_available: bool
+    min_cross_page_grounding_score: float
+    min_cross_page_usefulness_score: float
+    min_multi_page_score: float
+    merge_into_final_dataset: bool
+
+
+@dataclass
 class AppConfig:
     input: InputConfig
     runtime: RuntimeConfig
@@ -84,6 +105,7 @@ class AppConfig:
     prompts: PromptConfig
     quality: QualityConfig
     analytics: AnalyticsConfig
+    cross_page: CrossPageConfig
 
 
 def load_config(config_path: Path) -> AppConfig:
@@ -184,6 +206,55 @@ def load_config(config_path: Path) -> AppConfig:
             ),
             token_stats_path=Path(
                 raw.get("analytics", {}).get("token_stats_path", "./output/token_stats.json")
+            ),
+        ),
+        cross_page=CrossPageConfig(
+            enabled=bool(raw.get("cross_page", {}).get("enabled", True)),
+            min_pages_per_pack=int(raw.get("cross_page", {}).get("min_pages_per_pack", 2)),
+            max_pages_per_pack=int(raw.get("cross_page", {}).get("max_pages_per_pack", 3)),
+            max_cross_page_qas_per_pack=int(
+                raw.get("cross_page", {}).get("max_cross_page_qas_per_pack", 3)
+            ),
+            max_evidence_quotes_per_item=int(
+                raw.get("cross_page", {}).get("max_evidence_quotes_per_item", 3)
+            ),
+            pack_overlap_window=int(raw.get("cross_page", {}).get("pack_overlap_window", 1)),
+            use_local_qas_as_hints=bool(
+                raw.get("cross_page", {}).get("use_local_qas_as_hints", True)
+            ),
+            synthesis_model=str(
+                raw.get("cross_page", {}).get("synthesis_model", raw["runtime"]["model"])
+            ),
+            synthesis_temperature=float(
+                raw.get("cross_page", {}).get("synthesis_temperature", 0.1)
+            ),
+            output_path=Path(
+                raw.get("cross_page", {}).get(
+                    "output_path", "./output/cross_page_chatml_dataset.jsonl"
+                )
+            ),
+            artifact_path=Path(
+                raw.get("cross_page", {}).get("artifact_path", "./output/page_artifacts.jsonl")
+            ),
+            quality_log_path=Path(
+                raw.get("cross_page", {}).get(
+                    "quality_log_path", "./output/cross_page_quality_log.jsonl"
+                )
+            ),
+            require_quote_match_if_text_available=bool(
+                raw.get("cross_page", {}).get("require_quote_match_if_text_available", True)
+            ),
+            min_cross_page_grounding_score=float(
+                raw.get("cross_page", {}).get("min_cross_page_grounding_score", 0.6)
+            ),
+            min_cross_page_usefulness_score=float(
+                raw.get("cross_page", {}).get("min_cross_page_usefulness_score", 0.55)
+            ),
+            min_multi_page_score=float(
+                raw.get("cross_page", {}).get("min_multi_page_score", 0.6)
+            ),
+            merge_into_final_dataset=bool(
+                raw.get("cross_page", {}).get("merge_into_final_dataset", True)
             ),
         ),
     )
