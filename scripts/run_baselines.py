@@ -44,12 +44,14 @@ LOG_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
 #   Tier 1 (sanity):  mmlu, gsm8k_cot           -> native
 #   Tier 2 (task QA):  squadv2, qasper           -> native
 #                      qasper is a GROUP that runs qasper_bool + qasper_freeform
-# NOTE: "hotpotqa" is NOT a native lm-eval task. It is intentionally left out of
-# the defaults so the run does not crash. The multi-hop / Stage-2 hypothesis is
-# covered by (a) the cross_page subset of the custom eval set, and (b) optionally
-# a custom hotpotqa task config you register with --include-path. See eval/README.md.
-DEFAULT_TASKS = ["mmlu", "gsm8k_cot", "squadv2", "qasper"]
+#   Tier 2 (multi-hop): hotpotqa                 -> CUSTOM task in eval/lm_eval_tasks/
+# "hotpotqa" is not native to lm-eval, so we ship a real-dataset task config and
+# register it via --include-path (default below). The task-availability pre-flight
+# uses the same include path, and gracefully drops hotpotqa if the config or the
+# dataset cannot be loaded, so the rest of the suite still runs.
+DEFAULT_TASKS = ["mmlu", "gsm8k_cot", "squadv2", "qasper", "hotpotqa"]
 DEFAULT_OUT_ROOT = Path("eval/baselines")
+DEFAULT_INCLUDE_PATH = Path("eval/lm_eval_tasks")
 DEFAULT_BATCH_SIZE = "auto"
 DEFAULT_LIMIT_PER_TASK = None  # None = full task; set 200 etc. for smoke runs
 
@@ -62,16 +64,22 @@ def _lm_eval_bin() -> str:
     return "lm_eval" if shutil.which("lm_eval") else "lm-eval"
 
 
-def filter_available_tasks(tasks: list[str]) -> tuple[list[str], list[str]]:
+def filter_available_tasks(
+    tasks: list[str], include_path: Path | None = None
+) -> tuple[list[str], list[str]]:
     """Split requested tasks into (available, missing) using `lm_eval --tasks list`.
 
     Task IDs drift between harness versions, and asking lm_eval to run an unknown
     task aborts the *entire* invocation. We pre-flight the list so a single bad
-    name doesn't sink the other benchmarks.
+    name doesn't sink the other benchmarks. Custom tasks are discovered by passing
+    the same --include_path used for the run.
     """
+    list_cmd = [_lm_eval_bin(), "--tasks", "list"]
+    if include_path is not None:
+        list_cmd.extend(["--include_path", str(include_path)])
     try:
         proc = subprocess.run(
-            [_lm_eval_bin(), "--tasks", "list"],
+            list_cmd,
             capture_output=True,
             text=True,
             check=False,
@@ -100,8 +108,9 @@ def build_command(
     extra_model_args: str,
     use_vllm: bool,
     num_fewshot: int | None,
+    include_path: Path | None = None,
 ) -> list[str]:
-    bin_name = "lm_eval" if shutil.which("lm_eval") else "lm-eval"
+    bin_name = _lm_eval_bin()
 
     if use_vllm:
         model_arg = "vllm"
@@ -122,6 +131,8 @@ def build_command(
         "--output_path", str(out_dir),
         "--log_samples",
     ]
+    if include_path is not None:
+        cmd.extend(["--include_path", str(include_path)])
     if limit is not None:
         cmd.extend(["--limit", str(limit)])
     if num_fewshot is not None:
@@ -155,6 +166,8 @@ def main() -> int:
                         help="short label used for output dir, e.g. base_qwen25_7b")
     parser.add_argument("--tasks", nargs="+", default=DEFAULT_TASKS)
     parser.add_argument("--out-root", type=Path, default=DEFAULT_OUT_ROOT)
+    parser.add_argument("--include-path", type=Path, default=DEFAULT_INCLUDE_PATH,
+                        help="dir of custom lm-eval task YAMLs (registers hotpotqa)")
     parser.add_argument("--batch-size", default=DEFAULT_BATCH_SIZE)
     parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT_PER_TASK,
                         help="cap items per task (smoke runs)")
@@ -179,9 +192,16 @@ def main() -> int:
         )
         return 1
 
+    # Only pass an include path that actually exists, so a missing dir doesn't
+    # make lm_eval error out.
+    include_path = args.include_path if args.include_path and args.include_path.exists() else None
+    if args.include_path and include_path is None:
+        logging.warning("--include-path %s does not exist; custom tasks (hotpotqa) "
+                        "will be unavailable.", args.include_path)
+
     tasks = list(args.tasks)
     if not args.dry_run and not args.skip_task_check:
-        available, missing = filter_available_tasks(tasks)
+        available, missing = filter_available_tasks(tasks, include_path)
         if missing:
             logging.warning(
                 "Skipping %d task(s) not found in this lm_eval install: %s",
@@ -208,6 +228,7 @@ def main() -> int:
         extra_model_args=args.model_args,
         use_vllm=args.use_vllm,
         num_fewshot=args.num_fewshot,
+        include_path=include_path,
     )
     logging.info("Command: %s", " ".join(cmd))
 

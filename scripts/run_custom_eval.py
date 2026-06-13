@@ -232,7 +232,9 @@ def main() -> int:
                         default=DEFAULT_CONTEXT_CHAR_LIMIT)
     parser.add_argument("--judge", action="store_true",
                         help="run an LLM-as-judge pass for soft correctness")
-    parser.add_argument("--judge-model", default="gpt-4o-mini")
+    # A strong, independent judge gives the most credible soft-correctness signal
+    # (normalized EM/F1 alone is harsh on free-form answers). Override if cost matters.
+    parser.add_argument("--judge-model", default="gpt-4.1")
     parser.add_argument("--limit", type=int, default=None,
                         help="cap items (smoke run)")
     args = parser.parse_args()

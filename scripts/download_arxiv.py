@@ -39,6 +39,8 @@ except ImportError:  # pragma: no cover
     )
     raise
 
+import requests  # transitive dep of arxiv; used for direct PDF download
+
 try:
     from tqdm import tqdm
 except ImportError:  # pragma: no cover
@@ -52,6 +54,9 @@ DEFAULT_OUTPUT_DIR = Path("corpus/raw")
 DEFAULT_LIMIT = 150
 DEFAULT_START_DATE = "2023-01-01"
 DEFAULT_SLEEP_SECONDS = 3.0  # arXiv asks for politeness; their rate-limit guidance is ~3s
+PDF_DOWNLOAD_TIMEOUT = 60
+# Polite identifying UA per arXiv API usage guidance.
+HTTP_HEADERS = {"User-Agent": "doc2instruct-eval/1.0 (https://arxiv.org; research use)"}
 
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
 
@@ -142,13 +147,33 @@ def search_papers(
 
 
 def download_paper(result: arxiv.Result, output_dir: Path) -> PaperRecord | None:
-    """Download a single paper. Returns None if the download failed."""
+    """Download a single paper. Returns None if the download failed.
+
+    The `arxiv` client dropped `Result.download_pdf` in 4.x, so we fetch the PDF
+    directly from `result.pdf_url`. We verify the payload is actually a PDF (the
+    server occasionally returns an HTML error/"not ready" page) before keeping it.
+    """
     arxiv_id = _normalize_arxiv_id(result.entry_id)
     pdf_path = output_dir / f"{arxiv_id}.pdf"
 
+    pdf_url = getattr(result, "pdf_url", None)
+    if not pdf_url:
+        logging.warning("No pdf_url available for %s", arxiv_id)
+        return None
+
     try:
-        # arxiv lib downloads to a directory and returns the path.
-        result.download_pdf(dirpath=str(output_dir), filename=f"{arxiv_id}.pdf")
+        resp = requests.get(
+            pdf_url, headers=HTTP_HEADERS, timeout=PDF_DOWNLOAD_TIMEOUT, allow_redirects=True
+        )
+        resp.raise_for_status()
+        content = resp.content
+        if not content[:5].startswith(b"%PDF"):
+            logging.warning(
+                "Response for %s was not a PDF (got %d bytes, content-type=%s); skipping.",
+                arxiv_id, len(content), resp.headers.get("Content-Type", "?"),
+            )
+            return None
+        pdf_path.write_bytes(content)
     except Exception as exc:  # noqa: BLE001
         logging.warning("Failed to download %s: %s", arxiv_id, exc)
         return None

@@ -1,0 +1,38 @@
+# Custom lm-evaluation-harness task: HotpotQA (distractor setting).
+#
+# HotpotQA is NOT a native lm-eval task, but it is the headline benchmark for the
+# Stage-2 multi-hop hypothesis, so we evaluate on the real dataset for credibility.
+#
+# Register it by pointing lm_eval at this directory:
+#     lm_eval ... --tasks hotpotqa --include_path eval/lm_eval_tasks
+# (scripts/run_baselines.py passes --include_path automatically.)
+#
+# We evaluate the distractor setting (question + 10 paragraphs, 2 gold + 8
+# distractors) and report SQuAD-style answer Exact Match and token F1.
+task: hotpotqa
+dataset_path: hotpot_qa
+dataset_name: distractor
+dataset_kwargs:
+  trust_remote_code: true
+output_type: generate_until
+training_split: train
+validation_split: validation
+test_split: validation
+fewshot_split: train
+doc_to_text: !function utils.doc_to_text
+doc_to_target: !function utils.doc_to_target
+process_results: !function utils.process_results
+generation_kwargs:
+  until:
+    - "\n"
+  do_sample: false
+  max_gen_toks: 64
+metric_list:
+  - metric: exact_match
+    aggregation: mean
+    higher_is_better: true
+  - metric: f1
+    aggregation: mean
+    higher_is_better: true
+metadata:
+  version: 1.0

@@ -126,9 +126,15 @@ Negative results are fine. Unmeasurable results are not.
 
 These don't block the corpus/eval prep but should be resolved before the GPU runs:
 
-1. Exact LoRA rank/alpha for QLoRA (defaults: r=16, alpha=16).
-2. Number of epochs (default: 1–3, watch loss curves).
-3. Whether to use HotpotQA as-is or only its multi-hop subset.
-4. Whether the LLM-judge for custom eval is GPT-4o, Claude, or a strong open model.
+1. Exact LoRA rank/alpha for QLoRA (defaults: r=16, alpha=16). **STILL OPEN.**
+2. Number of epochs (default: 1–3, watch loss curves). **STILL OPEN.**
+3. ~~Whether to use HotpotQA as-is or only its multi-hop subset.~~ **RESOLVED
+   (2026-06-13):** evaluate the *full real HotpotQA distractor set* for maximum
+   credibility, via a custom lm-eval task at `eval/lm_eval_tasks/hotpotqa.yaml`
+   (answer EM/F1, SQuAD normalization). Registered automatically by
+   `run_baselines.py --include-path`.
+4. ~~Whether the LLM-judge for custom eval is GPT-4o, Claude, or a strong open
+   model.~~ **RESOLVED (2026-06-13):** default judge is `gpt-4.1` (strong,
+   independent of the EM/F1 path). Overridable via `--judge-model`.
 
 Mark these with TODO comments in the relevant scripts.

@@ -229,9 +229,18 @@ The arXiv API is rate-limited and occasionally flaky. The downloader retries 3×
 and skips persistent failures. Re-run the same command — it resumes.
 
 **`lm_eval` task name not found.**
-Task IDs evolve. Run `lm_eval --tasks list | grep -i squad` (or the relevant
-keyword) to find the current name. Update `DEFAULT_TASKS` in
-`scripts/run_baselines.py` accordingly.
+Task IDs evolve. `run_baselines.py` pre-flights `lm_eval --tasks list` and skips
+any task it can't find (logging a warning) instead of aborting the whole run, so
+one bad name no longer sinks the suite. To find a current name manually, run
+`lm_eval --tasks list | grep -i squad` and update `DEFAULT_TASKS`.
+
+**HotpotQA (the multi-hop / Stage-2 benchmark).**
+HotpotQA is not native to lm-eval, so we ship a real-dataset task config at
+`eval/lm_eval_tasks/hotpotqa.yaml` (distractor setting, answer EM/F1).
+`run_baselines.py` registers it automatically via `--include-path eval/lm_eval_tasks`.
+It needs network access to pull the `hotpot_qa` dataset on first run and may
+require `trust_remote_code` (already set in the YAML). If it can't load, the
+pre-flight drops it and the other tasks still run.
 
 **OOM during `run_custom_eval.py` HF backend.**
 Add `--model-args load_in_4bit=true` (you'll need bitsandbytes installed),
