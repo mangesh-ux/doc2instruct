@@ -106,8 +106,26 @@ Each row in the CSV has:
 - `status` — set to `accept` (keep), `edit` (kept after you edited), or `reject`
 - `notes` — anything you want to remember
 
-Target: ~150 accepted rows total, ~60% single-page, ~40% cross-page.
+Cross-page volume: the bootstrapper now generates at least `--cross-ratio`
+(default 0.5) cross-page candidates per paper relative to single-page ones,
+drawing adjacent page pairs first then widening the gap up to `--cross-max-gap`.
+So the review pool supports a genuinely multi-page eval, not a single-page one.
+
+Target: ~150 accepted rows total, with **cross-page at least ~50% of single-page**.
 Quality > quantity. 100 well-written items beat 300 sloppy ones.
+
+### Recommended: review in the notebook
+
+Instead of editing the CSV by hand, open the interactive reviewer:
+
+```bash
+pip install ipywidgets pandas   # one-time (jupyter too if you don't have it)
+jupyter lab eval/review_candidates.ipynb   # or: jupyter notebook
+```
+
+It shows the full source page text beside each candidate, lets you edit the
+question/answer/evidence and set `status`, autosaves to `candidates.csv`, tracks
+the cross/single ratio live, and has a Finalize cell that writes `test.jsonl`.
 
 ---
 

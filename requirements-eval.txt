@@ -3,6 +3,8 @@
 #
 # Local (no GPU needed):
 arxiv>=2.0.0           # download_arxiv.py
+pandas>=2.0           # eval/review_candidates.ipynb
+ipywidgets>=8.0       # eval/review_candidates.ipynb (interactive review UI)
 # tqdm, PyMuPDF, openai, python-dotenv already in requirements.txt
 
 # Cloud / GPU host (Kaggle, RunPod) — install only there:

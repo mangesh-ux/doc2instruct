@@ -19,8 +19,14 @@ into eval/custom/test.jsonl in ChatML-compatible format.
 
 Design notes:
     - Cheap by default. Token spend only happens with --use-openai.
-    - Cross-page candidates: simple adjacent-pair strategy (page N + N+1).
-    - The CSV is the primary review surface — open in a spreadsheet, edit, save.
+    - Cross-page candidates: page pairs ordered by proximity. Adjacent pairs
+      (N, N+1) are preferred (strongest relation); if more are needed to hit the
+      target ratio we widen the gap (N, N+2), (N, N+3), ... up to --cross-max-gap.
+    - We generate at least --cross-ratio * (single-page candidates) cross-page
+      candidates per paper (default 0.5), so the review pool is rich enough to
+      build a genuinely multi-page eval set, not a single-page-dominated one.
+    - The CSV is the primary review surface — open in a spreadsheet (or the
+      review notebook at eval/review_candidates.ipynb), edit, save.
 """
 
 from __future__ import annotations
@@ -29,6 +35,7 @@ import argparse
 import csv
 import json
 import logging
+import math
 import os
 import sys
 from dataclasses import dataclass, asdict
@@ -46,7 +53,8 @@ LOG_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
 DEFAULT_HOLDOUT_DIR = Path("corpus/holdout")
 DEFAULT_OUT_DIR = Path("eval/custom")
 DEFAULT_PER_PAGE = 1            # candidate questions per page (single_page)
-DEFAULT_CROSS_PAIRS_PER_PAPER = 3  # candidate cross-page pairs per paper
+DEFAULT_CROSS_RATIO = 0.5       # min cross-page candidates as a fraction of single-page
+DEFAULT_CROSS_MAX_GAP = 3       # widen page gap up to this to find related pairs
 PAGE_TEXT_TRUNCATE = 1500       # chars in CSV (full text in page_texts.jsonl)
 
 
@@ -84,6 +92,24 @@ def extract_pages(pdf_path: Path) -> list[str]:
 def page_is_usable(text: str, min_chars: int = 200) -> bool:
     """Filter out blank/cover/figure-only pages."""
     return len(text) >= min_chars
+
+
+def cross_page_pairs(
+    usable_pages: list[tuple[int, str]], max_gap: int
+) -> list[tuple[tuple[int, str], tuple[int, str]]]:
+    """Return candidate page pairs ordered by proximity (closest first).
+
+    usable_pages is a list of (page_number, text) sorted by page number. We emit
+    adjacent pairs first (gap=1, the strongest relation), then progressively wider
+    gaps up to max_gap. Ordering by gap means a caller taking the first N pairs
+    gets the most-related ones.
+    """
+    pairs: list[tuple[tuple[int, str], tuple[int, str]]] = []
+    n = len(usable_pages)
+    for gap in range(1, max_gap + 1):
+        for k in range(n - gap):
+            pairs.append((usable_pages[k], usable_pages[k + gap]))
+    return pairs
 
 
 # ---------- candidate generation ----------
@@ -170,9 +196,14 @@ def main() -> int:
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--per-page", type=int, default=DEFAULT_PER_PAGE,
                         help="single-page candidates per usable page")
-    parser.add_argument("--cross-pairs-per-paper", type=int,
-                        default=DEFAULT_CROSS_PAIRS_PER_PAPER,
-                        help="adjacent cross-page candidate pairs per paper")
+    parser.add_argument("--cross-ratio", type=float, default=DEFAULT_CROSS_RATIO,
+                        help="min cross-page candidates as a fraction of single-page "
+                             "candidates per paper (default 0.5 = at least 50%%)")
+    parser.add_argument("--cross-max-gap", type=int, default=DEFAULT_CROSS_MAX_GAP,
+                        help="widen page gap up to this value to find related pairs")
+    parser.add_argument("--cross-pairs-per-paper", type=int, default=None,
+                        help="hard cap on cross-page pairs per paper; overrides "
+                             "--cross-ratio when set")
     parser.add_argument("--use-openai", action="store_true",
                         help="use OpenAI to pre-draft questions (costs $)")
     parser.add_argument("--openai-model", default="gpt-4o-mini",
@@ -245,13 +276,20 @@ def main() -> int:
                 if cand is not None:
                     candidates.append(cand)
 
-        # cross_page candidates: take adjacent usable pairs
-        adjacent_pairs = [
-            (usable_pages[k], usable_pages[k + 1])
-            for k in range(len(usable_pages) - 1)
-            if usable_pages[k + 1][0] - usable_pages[k][0] == 1
-        ]
-        for (p_a, t_a), (p_b, t_b) in adjacent_pairs[: args.cross_pairs_per_paper]:
+        # cross_page candidates: at least cross_ratio * (single-page count),
+        # drawn from proximity-ordered page pairs (adjacent first, then wider gaps).
+        n_single = len(usable_pages) * args.per_page
+        if args.cross_pairs_per_paper is not None:
+            cross_target = args.cross_pairs_per_paper
+        else:
+            cross_target = math.ceil(args.cross_ratio * n_single)
+        all_pairs = cross_page_pairs(usable_pages, args.cross_max_gap)
+        selected_pairs = all_pairs[:cross_target]
+        logging.info(
+            "  %s: %d single-page, targeting %d cross-page (%d pairs available)",
+            paper_id, n_single, len(selected_pairs), len(all_pairs),
+        )
+        for (p_a, t_a), (p_b, t_b) in selected_pairs:
             combined = f"--- page {p_a} ---\n{t_a}\n\n--- page {p_b} ---\n{t_b}"
             if args.use_openai and client is not None:
                 cand = make_llm_candidate(
