@@ -36,6 +36,7 @@ from multimodal_dataset.quality import (
     critique_cross_page_item,
     has_citation_match,
     heuristic_usefulness_score,
+    citation_coverage,
     normalize_text,
     text_similarity,
 )
@@ -135,8 +136,15 @@ def _iter_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def _cross_quote_matches(item: dict[str, Any], evidence_pack: dict[str, Any]) -> bool:
+    """True when every evidence quote is supported by its cited page's text.
+
+    Uses the same coverage-based matcher as the single-page citation check.
+    A bare substring test cannot work here: pack page text retains PDF line
+    breaks while the model emits single-line quotes, so exact matching
+    rejected 100% of cross-page items.
+    """
     page_to_text = {
-        int(p.get("page")): str(p.get("text", "")).lower()
+        int(p.get("page")): str(p.get("text", ""))
         for p in evidence_pack.get("page_texts", [])
     }
     quotes = item.get("evidence_quotes", [])
@@ -144,12 +152,35 @@ def _cross_quote_matches(item: dict[str, Any], evidence_pack: dict[str, Any]) ->
         return False
     for q in quotes:
         page = int(q.get("page", -1))
-        quote = str(q.get("quote", "")).strip().lower()
+        quote = str(q.get("quote", "")).strip()
         if not quote or page not in page_to_text:
             return False
-        if quote not in page_to_text[page]:
+        if not has_citation_match(page_to_text[page], quote):
             return False
     return True
+
+
+def _cross_quote_coverages(
+    item: dict[str, Any], evidence_pack: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Per-quote coverage against the cited page, for quality-log diagnostics."""
+    page_to_text = {
+        int(p.get("page")): str(p.get("text", ""))
+        for p in evidence_pack.get("page_texts", [])
+    }
+    out: list[dict[str, Any]] = []
+    for q in item.get("evidence_quotes", []) or []:
+        try:
+            page = int(q.get("page", -1))
+        except (TypeError, ValueError):
+            continue
+        quote = str(q.get("quote", "")).strip()
+        text = page_to_text.get(page, "")
+        out.append({
+            "page": page,
+            "coverage": round(citation_coverage(text, quote), 4) if text and quote else 0.0,
+        })
+    return out
 
 
 def _build_user_prompt(cfg: AppConfig, *, book_name: str, page_number: int) -> str:
@@ -168,7 +199,9 @@ def _build_user_prompt(cfg: AppConfig, *, book_name: str, page_number: int) -> s
         "2) First classify page_status as one of: usable, blank, unreadable, index_only, image_only.\n"
         "3) If page is blank/unreadable, set items to [].\n"
         "4) Keep each answer useful for instruction tuning.\n"
-        "5) Include citation_quote as a short supporting quote when possible.\n"
+        "5) Include citation_quote as a short supporting quote when possible. It "
+        "must be ONE contiguous span copied character-for-character from the page "
+        "- do not paraphrase, and do not join separate sentences with '...'.\n"
         "6) page_status_reason must explain why the status was chosen.\n"
     )
 
@@ -368,6 +401,7 @@ def _log_quality_decision(
     reasons: list[str],
     grounding_score: float,
     usefulness_score: float,
+    citation_coverage: float | None = None,
 ) -> None:
     """Write per-item quality gate verdict for auditability."""
     _safe_append_jsonl(
@@ -383,6 +417,10 @@ def _log_quality_decision(
             "grounding_score": grounding_score,
             "usefulness_score": usefulness_score,
             "question": qa_item.get("question", ""),
+            # Kept so citation failures can be diagnosed (near-miss transcription
+            # vs genuine paraphrase) without re-running generation.
+            "citation_quote": qa_item.get("citation_quote", ""),
+            "citation_coverage": citation_coverage,
         },
     )
 
@@ -946,6 +984,9 @@ def run_pipeline(
                                 reasons.append("model_marked_not_useful")
 
                     text_available = len(page_text.strip()) > 20
+                    citation_cov: float | None = None
+                    if text_available and citation_quote:
+                        citation_cov = round(citation_coverage(page_text, citation_quote), 4)
                     if (
                         cfg.quality.enabled
                         and cfg.quality.require_citation_match_if_text_available
@@ -973,6 +1014,7 @@ def run_pipeline(
                             reasons=reasons,
                             grounding_score=grounding_score,
                             usefulness_score=usefulness_score,
+                            citation_coverage=citation_cov,
                         )
                     if not accepted:
                         quality_rejected += 1
@@ -1235,6 +1277,9 @@ def run_pipeline(
                             "grounding_score": grounding_score,
                             "usefulness_score": usefulness_score,
                             "multi_page_score": multi_page_score,
+                            # Per-quote coverage against the cited page, so quote
+                            # rejections can be told apart from judge rejections.
+                            "evidence_quote_coverages": _cross_quote_coverages(item, pack),
                         },
                     )
                     if not accepted:

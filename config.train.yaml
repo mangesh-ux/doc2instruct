@@ -1,7 +1,12 @@
 # ------------------------------------------------------------------------------
 # doc2instruct config for the EVAL training run.
-# Identical to config.yaml EXCEPT input is pinned to the train split so the
-# held-out papers are never fed into generation. Use with:
+# Differs from config.yaml in two ways that both protect the evaluation:
+#   1. input is pinned to the train split, so held-out papers are never fed
+#      into generation;
+#   2. every output path is namespaced under output/train_run/, so this run's
+#      dataset cannot be polluted by leftover records from earlier runs on
+#      other documents (output/chatml_dataset.jsonl still holds an old book run).
+# Use with:
 #     python run.py --config config.train.yaml
 # ------------------------------------------------------------------------------
 
@@ -33,9 +38,9 @@ runtime:
   sleep_seconds_between_requests: 0.4
 
   log_prompts: true
-  prompt_log_path: "./output/prompt_log.jsonl"
+  prompt_log_path: "./output/train_run/prompt_log.jsonl"
   log_api_metrics: true
-  api_metrics_log_path: "./output/api_metrics.jsonl"
+  api_metrics_log_path: "./output/train_run/api_metrics.jsonl"
 
   generation_input_cost_per_1m_tokens_usd: 5.0
   generation_output_cost_per_1m_tokens_usd: 15.0
@@ -43,22 +48,26 @@ runtime:
   judge_output_cost_per_1m_tokens_usd: 15.0
 
   checkpoint_enabled: true
-  checkpoint_path: "./output/run_checkpoint.json"
+  checkpoint_path: "./output/train_run/run_checkpoint.json"
+  # Every path below is namespaced under output/train_run/ so this run cannot
+  # mix with output/ from earlier exploratory runs on other documents. Keep
+  # append_mode true ONLY because --resume relies on appending after an
+  # interruption; the dedicated directory is what keeps the dataset clean.
   append_mode: true
-  failed_writes_log_path: "./output/failed_writes.jsonl"
+  failed_writes_log_path: "./output/train_run/failed_writes.jsonl"
 
   parallel_critique_workers: 4
   parallel_future_timeout_seconds: 300
 
-  process_log_path: "./output/process_log.jsonl"
+  process_log_path: "./output/train_run/process_log.jsonl"
   verbose_success_logs: true
 
 # ------------------------------------------------------------------------------
 # DATASET SHAPE SETTINGS
 # ------------------------------------------------------------------------------
 dataset:
-  output_path: "./output/chatml_dataset.jsonl"
-  skipped_pages_output_path: "./output/skipped_pages.jsonl"
+  output_path: "./output/train_run/chatml_dataset.jsonl"
+  skipped_pages_output_path: "./output/train_run/skipped_pages.jsonl"
   qas_per_page: 4
   user_profile: "ML researcher who wants precise, grounded answers from papers"
 
@@ -102,14 +111,14 @@ quality:
   min_usefulness_score: 0.5
   duplicate_similarity_threshold: 0.9
   require_citation_match_if_text_available: true
-  quality_log_path: "./output/quality_log.jsonl"
+  quality_log_path: "./output/train_run/quality_log.jsonl"
 
 # ------------------------------------------------------------------------------
 # ANALYTICS SETTINGS
 # ------------------------------------------------------------------------------
 analytics:
-  report_path: "./output/analytics_report.json"
-  token_stats_path: "./output/token_stats.json"
+  report_path: "./output/train_run/analytics_report.json"
+  token_stats_path: "./output/train_run/token_stats.json"
 
 # ------------------------------------------------------------------------------
 # CROSS-PAGE SYNTHESIS SETTINGS (Stage 2)
@@ -124,9 +133,9 @@ cross_page:
   use_local_qas_as_hints: true
   synthesis_model: "gpt-4.1"
   synthesis_temperature: 0.1
-  output_path: "./output/cross_page_chatml_dataset.jsonl"
-  artifact_path: "./output/page_artifacts.jsonl"
-  quality_log_path: "./output/cross_page_quality_log.jsonl"
+  output_path: "./output/train_run/cross_page_chatml_dataset.jsonl"
+  artifact_path: "./output/train_run/page_artifacts.jsonl"
+  quality_log_path: "./output/train_run/cross_page_quality_log.jsonl"
   require_quote_match_if_text_available: true
   min_cross_page_grounding_score: 0.6
   min_cross_page_usefulness_score: 0.55

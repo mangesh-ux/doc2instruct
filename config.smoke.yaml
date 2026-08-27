@@ -1,0 +1,113 @@
+# ------------------------------------------------------------------------------
+# SMOKE config: 2 papers x 5 pages.
+# Purpose: validate the pipeline end-to-end on born-digital arXiv PDFs (all
+# earlier runs were on a scanned book) and measure real per-page cost/latency
+# so the full-corpus run can be budgeted from data instead of guesswork.
+# Outputs land in output/smoke_run/ and must NOT be published.
+#     python run.py --config config.smoke.yaml
+# ------------------------------------------------------------------------------
+
+input:
+  books_dir: "./corpus/train_smoke"
+  glob: "*.pdf"
+
+runtime:
+  model: "gpt-4.1"
+  temperature: 0.2
+
+  max_pages_per_book: 5
+
+  dpi: 200
+  retry_dpi: 300
+  max_unusable_retries: 1
+
+  request_timeout_seconds: 180
+  sleep_seconds_between_requests: 0.4
+
+  log_prompts: true
+  prompt_log_path: "./output/smoke_run/prompt_log.jsonl"
+  log_api_metrics: true
+  api_metrics_log_path: "./output/smoke_run/api_metrics.jsonl"
+
+  # NOTE: these are deliberately conservative (real gpt-4.1 list price is lower).
+  # Cost figures from this run are therefore an upper bound.
+  generation_input_cost_per_1m_tokens_usd: 5.0
+  generation_output_cost_per_1m_tokens_usd: 15.0
+  judge_input_cost_per_1m_tokens_usd: 5.0
+  judge_output_cost_per_1m_tokens_usd: 15.0
+
+  checkpoint_enabled: true
+  checkpoint_path: "./output/smoke_run/run_checkpoint.json"
+  append_mode: true
+  failed_writes_log_path: "./output/smoke_run/failed_writes.jsonl"
+
+  parallel_critique_workers: 4
+  parallel_future_timeout_seconds: 300
+
+  process_log_path: "./output/smoke_run/process_log.jsonl"
+  verbose_success_logs: true
+
+dataset:
+  output_path: "./output/smoke_run/chatml_dataset.jsonl"
+  skipped_pages_output_path: "./output/smoke_run/skipped_pages.jsonl"
+  qas_per_page: 4
+  user_profile: "ML researcher who wants precise, grounded answers from papers"
+
+  variety:
+    question_types:
+      - "factual"
+      - "reasoning"
+      - "compare-contrast"
+      - "application"
+    difficulty_mix:
+      easy: 0.3
+      medium: 0.5
+      hard: 0.2
+    answer_style:
+      - "concise"
+      - "step-by-step"
+      - "example-driven"
+
+  citation:
+    require_quote_span: true
+    max_quote_chars: 300
+
+prompts:
+  system: |
+    You create high-quality instruction tuning data from a single page image of
+    a scientific paper. Only use information visible on the page image.
+    If data is unclear or missing, avoid fabricating specifics.
+    Return strictly valid JSON matching the schema.
+
+quality:
+  enabled: true
+  use_model_self_critique: true
+  critique_model: "gpt-4.1"
+  min_grounding_score: 0.55
+  min_usefulness_score: 0.5
+  duplicate_similarity_threshold: 0.9
+  require_citation_match_if_text_available: true
+  quality_log_path: "./output/smoke_run/quality_log.jsonl"
+
+analytics:
+  report_path: "./output/smoke_run/analytics_report.json"
+  token_stats_path: "./output/smoke_run/token_stats.json"
+
+cross_page:
+  enabled: true
+  min_pages_per_pack: 2
+  max_pages_per_pack: 3
+  pack_overlap_window: 1
+  max_cross_page_qas_per_pack: 3
+  max_evidence_quotes_per_item: 3
+  use_local_qas_as_hints: true
+  synthesis_model: "gpt-4.1"
+  synthesis_temperature: 0.1
+  output_path: "./output/smoke_run/cross_page_chatml_dataset.jsonl"
+  artifact_path: "./output/smoke_run/page_artifacts.jsonl"
+  quality_log_path: "./output/smoke_run/cross_page_quality_log.jsonl"
+  require_quote_match_if_text_available: true
+  min_cross_page_grounding_score: 0.6
+  min_cross_page_usefulness_score: 0.55
+  min_multi_page_score: 0.6
+  merge_into_final_dataset: true
