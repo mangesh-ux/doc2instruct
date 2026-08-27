@@ -1,0 +1,164 @@
+{
+  "input_csv": [
+    "eval\\custom\\cross_page_ablated.csv",
+    "eval\\custom\\candidates_v3.csv"
+  ],
+  "output_csv": "eval\\custom\\candidates_verified.csv",
+  "thresholds": {
+    "min_quote_coverage": 0.85,
+    "min_quote_chars": 25,
+    "min_answer_words": 1,
+    "max_answer_words": 60,
+    "dup_threshold": 0.88,
+    "min_cross_terms": 1
+  },
+  "selection": {
+    "target_single": 90,
+    "target_cross": 54,
+    "valid_pool_single": 211,
+    "valid_pool_cross": 35
+  },
+  "total_rows": 573,
+  "accepted": 125,
+  "accepted_single_page": 90,
+  "accepted_cross_page": 35,
+  "cross_over_single_ratio": 0.389,
+  "distinct_papers_accepted": 15,
+  "per_paper_accepted": {
+    "2606.13178": 10,
+    "2606.13282": 6,
+    "2606.13285": 10,
+    "2606.13287": 9,
+    "2606.13370": 6,
+    "2606.13380": 15,
+    "2606.13382": 6,
+    "2606.13432": 7,
+    "2606.13461": 6,
+    "2606.13513": 10,
+    "2606.13568": 8,
+    "2606.13629": 13,
+    "2606.13634": 5,
+    "2606.13637": 7,
+    "2606.13663": 7
+  },
+  "evidence_coverage_mean_accepted": 0.999,
+  "evidence_exact_verbatim_accepted": 122,
+  "accepted_by_source_csv": {
+    "candidates_v3.csv": 90,
+    "cross_page_ablated.csv": 35
+  },
+  "reject_reason_counts": {
+    "cross_page_not_ablation_verified": 136,
+    "evidence_not_in_source": 125,
+    "valid_but_not_selected": 121,
+    "upstream_reject": 116,
+    "evidence_not_on_its_own_page": 19,
+    "near_duplicate_question": 4,
+    "generic_question": 2,
+    "evidence_too_short": 1
+  },
+  "rejected_samples": {
+    "evidence_not_in_source": [
+      {
+        "paper_id": "2606.13178",
+        "pages": "1,2",
+        "question": "What is the exact formula for the frozen-transfer gap in finite-output log loss as described in the paper, and what does it represent?",
+        "reason": "evidence_not_in_source(cov=0.49)"
+      },
+      {
+        "paper_id": "2606.13178",
+        "pages": "2,3",
+        "question": "How does strict refinement of Bayes quotients induced by different losses under a fixed joint law P create an obstruction to frozen transfer between source and ",
+        "reason": "evidence_not_in_source(cov=0.53)"
+      },
+      {
+        "paper_id": "2606.13178",
+        "pages": "4,5",
+        "question": "What does it mean for a representation H = h(X) to be Bayes-minimal for (P, ℓ) in the Bayes-quotient regime, and how is this related to the Bayes quotient qℓ,P(",
+        "reason": "evidence_not_in_source(cov=0.52)"
+      }
+    ],
+    "cross_page_not_ablation_verified": [
+      {
+        "paper_id": "2606.13178",
+        "pages": "1,2",
+        "question": "What is the exact formula for the frozen-transfer gap in finite-output log loss as described in the paper, and what does it represent?",
+        "reason": "cross_page_not_ablation_verified"
+      },
+      {
+        "paper_id": "2606.13178",
+        "pages": "2,3",
+        "question": "How does strict refinement of Bayes quotients induced by different losses under a fixed joint law P create an obstruction to frozen transfer between source and ",
+        "reason": "cross_page_not_ablation_verified"
+      },
+      {
+        "paper_id": "2606.13178",
+        "pages": "3,4",
+        "question": "According to the Bayes-quotient regime described, what is the definition of a Bayes-minimal representation for a loss ℓ and joint law P?",
+        "reason": "cross_page_not_ablation_verified"
+      }
+    ],
+    "evidence_not_on_its_own_page": [
+      {
+        "paper_id": "2606.13178",
+        "pages": "10,11",
+        "question": "According to the controlled binary model, what is the excess negative log likelihood (NLL) of the Bayes-class representation S relative to the full representati",
+        "reason": "evidence_not_on_its_own_page(cov=0.54)"
+      },
+      {
+        "paper_id": "2606.13178",
+        "pages": "12,13",
+        "question": "At α = 0.23 in the learned bottleneck experiment, what is the observed difference in negative log likelihood (NLL) between the frozen hinge bottleneck and the f",
+        "reason": "evidence_not_on_its_own_page(cov=0.70)"
+      },
+      {
+        "paper_id": "2606.13282",
+        "pages": "1,2",
+        "question": "What is the dimensionality of the Ethical Consequence Space (ECS) used by ERTS, and what is the main reason for choosing this specific value over alternatives?",
+        "reason": "evidence_not_on_its_own_page(cov=0.43)"
+      }
+    ],
+    "near_duplicate_question": [
+      {
+        "paper_id": "2606.13285",
+        "pages": "26",
+        "question": "What is the RMSE* for the PatchTST model with ESE at input length 200 and prediction horizon 10?",
+        "reason": "near_duplicate_question"
+      },
+      {
+        "paper_id": "2606.13285",
+        "pages": "36",
+        "question": "What is the computational cost (in minutes) for SCINet with and without ESE on the 320-region dataset and input length 100?",
+        "reason": "near_duplicate_question"
+      },
+      {
+        "paper_id": "2606.13285",
+        "pages": "37",
+        "question": "What is the computational cost (in minutes) for SCINet with and without ESE on the 320-region dataset for input length 100?",
+        "reason": "near_duplicate_question"
+      }
+    ],
+    "evidence_too_short": [
+      {
+        "paper_id": "2606.13380",
+        "pages": "56",
+        "question": "In the given ansatz formula, what is the definition of the variable 'm' as used in the exponentials involving θ(ℓ)_p?",
+        "reason": "evidence_too_short"
+      }
+    ],
+    "generic_question": [
+      {
+        "paper_id": "2606.13432",
+        "pages": "5,6",
+        "question": "How does OmniDirector inject the camera grid representation into the transformer architecture during training, and what is the purpose of the self-reconstructio",
+        "reason": "generic_question"
+      },
+      {
+        "paper_id": "2606.13513",
+        "pages": "5",
+        "question": "What is the purpose of the Gurobi optimizer in the context of this benchmark?",
+        "reason": "generic_question"
+      }
+    ]
+  }
+}

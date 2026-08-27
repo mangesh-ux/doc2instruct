@@ -1,0 +1,13 @@
+{
+  "input_csv": "eval\\custom\\cross_page_candidates.csv",
+  "output_csv": "eval\\custom\\cross_page_ablated.csv",
+  "model": "gpt-4.1",
+  "f1_threshold": 0.6,
+  "items_tested": 136,
+  "needs_both_pages": 54,
+  "rejected_single_page_sufficient": 82,
+  "errors": 0,
+  "shortcut_rate": 0.6029,
+  "distinct_papers_kept": 13,
+  "method": "Each question was answered by the model given only page A, then only page B. Token F1 against the gold answer; an item is kept only if both single-page attempts score below the threshold, i.e. no single page is sufficient."
+}
