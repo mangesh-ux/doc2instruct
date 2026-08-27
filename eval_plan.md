@@ -232,9 +232,10 @@ generator self-certified items whose answer sat entirely inside one page's span.
 page B, and keep the item only if neither reaches token F1 ≥ 0.6 against the
 gold answer.
 
-**Of 136 self-certified multi-hop items, 82 (60.3%) were single-page
-answerable.** 54 survived the ablation; 35 also passed per-page verbatim
-grounding and form the published `cross_page` subset.
+**Of 136 + 207 self-certified multi-hop items, 60–63% were single-page
+answerable.** 73 passed both the ablation and per-page verbatim grounding; 60
+were selected round-robin across papers and form the published `cross_page`
+subset (ratio 0.67 vs the 90 single-page items).
 
 Consequence for §2: any cross-page result must be read alongside HotpotQA, and
 the cross-page subset must be reported separately from single-page.

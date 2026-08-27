@@ -173,7 +173,9 @@ generator itself certified as multi-hop. Results in `ablation_report.json`.
 
 ```bash
 python scripts/verify_candidates.py \
-    --in-csv eval/custom/cross_page_ablated.csv eval/custom/candidates_v3.csv \
+    --in-csv eval/custom/cross_page_ablated.csv \
+             eval/custom/cross_page_ablated_wide.csv \
+             eval/custom/candidates_v3.csv \
     --target-single 90 --target-cross 60 --require-ablation-for-cross
 ```
 

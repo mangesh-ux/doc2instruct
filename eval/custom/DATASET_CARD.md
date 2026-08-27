@@ -1,6 +1,6 @@
 # Dataset card — doc2instruct held-out evaluation set
 
-`eval/custom/test.jsonl` — 125 grounded reading-comprehension questions over 15
+`eval/custom/test.jsonl` — 150 grounded reading-comprehension questions over 15
 arXiv papers that were **excluded from all training data**.
 
 Its purpose is narrow: measure whether training on doc2instruct-generated data
@@ -14,13 +14,13 @@ Stage 1 (single-page).
 
 | | Count |
 |---|---|
-| Total items | 125 |
+| Total items | 150 |
 | `single_page` | 90 |
-| `cross_page` (verified multi-hop) | 35 |
-| cross/single ratio | 0.39 |
+| `cross_page` (verified multi-hop) | 60 |
+| cross/single ratio | 0.67 |
 | Distinct source papers | 15 |
-| Evidence exactly verbatim | 122 / 125 |
-| Mean evidence coverage | 0.999 |
+| Evidence exactly verbatim | 146 / 150 |
+| Mean evidence coverage | 0.998 |
 
 Source papers are arXiv `cs.CL` / `cs.LG` / `cs.AI`, 2023 onward, split from the
 corpus by `scripts/split_corpus.py` with seed 42 and recorded in
@@ -78,15 +78,16 @@ single page reaches F1 ≥ 0.6 — the same shortcut audit applied to multi-hop 
 benchmarks. The two scores are kept per item in
 `provenance.single_page_f1`, so any item can be re-checked.
 
-A further 19 of the 54 survivors were dropped because one of their two spans was
-not verbatim on its own page. 35 items passed both tests.
+Across two drafting pools (136 + 207 self-certified items) the shortcut rate
+was 60–63%. 73 items passed both the ablation and per-page verbatim grounding;
+60 of them (round-robin across papers) form the published `cross_page` subset.
 
 ## 5. Verification each item passed
 
 - **Evidence grounding** — the evidence span occurs in the source page text,
   normalized for the ways PDF extraction differs from a faithful transcription
-  (unicode ligatures, hyphenated line breaks, whitespace). Coverage ≥ 0.85; 122
-  of 125 are exact.
+  (unicode ligatures, hyphenated line breaks, whitespace). Coverage ≥ 0.85; 146
+  of 150 are exact.
 - **Per-page grounding** (cross-page) — each of the two spans is verbatim on
   *its own* page, so one page cannot supply all the evidence.
 - **Multi-hop necessity** (cross-page) — the ablation in §4.
@@ -99,7 +100,7 @@ not verbatim on its own page. 35 items passed both tests.
 ## 6. Limitations — read before quoting numbers
 
 - **Not human-verified.** Every item passed the mechanical gate above, and
-  `provenance.review` says `machine_gate` for all 125. Nobody has yet read them
+  `provenance.review` says `machine_gate` for all 150. Nobody has yet read them
   and signed off. Use `eval/review_candidates.ipynb` to spot-check; items you
   edit are re-stamped `human`. **Do not describe this set as hand-verified until
   that field says so.**
@@ -108,11 +109,12 @@ not verbatim on its own page. 35 items passed both tests.
   model. If the model under test shares a lineage with the drafter, some
   stylistic affinity cannot be ruled out. The single-page ablation and verbatim
   checks constrain what that affinity can buy.
-- **cross/single ratio is 0.39**, below the 0.5 target. The ablation is strict
-  and discards ~74% of drafted cross-page items.
-  `eval/custom/cross_page_candidates_wide.csv` holds 207 further drafted
-  candidates that are not yet ablated; running `ablate_cross_page.py` on it is
-  expected to lift cross-page past 60 items and the ratio past 0.5.
+- **cross/single ratio is 0.67**, above the 0.5 floor. Getting there required
+  a second drafting pool: the first 136 self-certified multi-hop items yielded
+  only 35 after ablation + per-page grounding. A wider enumeration of page
+  pairs (207 more drafts) brought the verified pool to 73, of which 60 were
+  selected. The ablation still discards ~62% of drafted cross-page items; that
+  is a property of the task, not a bug.
 - **Answers are short by construction**, so this set measures precise factual
   grounding, not long-form explanation quality.
 - **15 papers is a small sample.** Per-paper variance will be visible; report
@@ -126,7 +128,8 @@ not verbatim on its own page. 35 items passed both tests.
 Comparative evaluation of the three variants in `eval_plan.md` §3 (base,
 +Stage 1, +Stage 1&2) on identical items. Report `single_page` and `cross_page`
 subsets **separately** — the cross-page subset is the only part that tests the
-Stage 2 claim, and with 35 items it is the noisier of the two.
+Stage 2 claim. With 60 items it is still the noisier of the two; report an
+interval, not just a point.
 
 Not intended as a general-purpose benchmark or leaderboard.
 
@@ -146,7 +149,9 @@ python scripts/improve_candidates.py --workers 8 --out-csv eval/custom/candidate
 python scripts/build_cross_page_eval.py --enumerate-pairs --workers 8
 python scripts/ablate_cross_page.py --workers 8
 python scripts/verify_candidates.py \
-  --in-csv eval/custom/cross_page_ablated.csv eval/custom/candidates_v3.csv \
+  --in-csv eval/custom/cross_page_ablated.csv \
+           eval/custom/cross_page_ablated_wide.csv \
+           eval/custom/candidates_v3.csv \
   --target-single 90 --target-cross 60 --require-ablation-for-cross
 python scripts/finalize_eval_set.py
 ```

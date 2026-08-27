@@ -52,9 +52,9 @@ cross-page subset but not here, say so plainly.
 
 ## 3. Tier 3 — custom held-out set
 
-`eval/custom/test.jsonl` (125 items over 15 held-out papers).
+`eval/custom/test.jsonl` (150 items over 15 held-out papers).
 **Report the subsets separately.** The cross-page subset is the only part that
-tests Stage 2, and at 35 items it is noisy.
+tests Stage 2.
 
 ### Overall
 
@@ -71,7 +71,7 @@ tests Stage 2, and at 35 items it is noisy.
 | Exact match | TBD | TBD | TBD |
 | Token F1 | TBD | TBD | TBD |
 
-### `cross_page` subset (n=35) — tests Stage 2
+### `cross_page` subset (n=60) — tests Stage 2
 
 | Metric | A. Base | B. +Stage 1 | C. +Stage 1&2 |
 |---|---|---|---|
@@ -86,13 +86,13 @@ Judge model: `gpt-4.1` (independent of the EM/F1 path).
 
 ## 4. Reading these numbers honestly
 
-With n=90 and n=35, differences of a few points are noise. Before claiming an
+With n=90 and n=60, differences of a few points are still noise. Before claiming an
 effect:
 
 - **Use paired comparisons.** Same items, same prompts; report how many items
   flipped correct→incorrect and incorrect→correct, not just the aggregate.
-- **Give an interval.** A bootstrap CI over items is enough; on n=35 the 95% CI
-  is roughly ±16 points for a proportion near 50%. Any cross-page claim smaller
+- **Give an interval.** A bootstrap CI over items is enough; on n=60 the 95% CI
+  is roughly ±13 points for a proportion near 50%. Any cross-page claim smaller
   than that is not supported.
 - **Separate the two claims.** "Stage 1 helps" (B vs A) and "Stage 2 adds
   something" (C vs B) are different questions with different evidence.
@@ -106,8 +106,8 @@ effect:
 
 - Custom eval questions are model-drafted, then mechanically verified
   (verbatim evidence, single-page ablation). See `DATASET_CARD.md` §6.
-- cross/single ratio is 0.39, below the 0.5 target, because the multi-hop
-  ablation rejects ~74% of drafted cross-page candidates.
+- cross/single ratio is 0.67 (90 single / 60 verified multi-hop). The multi-hop
+  ablation still rejects ~62% of drafted cross-page candidates.
 - 15 held-out papers, single domain (recent arXiv ML/NLP).
 - Stage 1 and Stage 2 record counts are unequal; if Stage 2 adds far fewer
   records, C vs B also differs in dataset *size*. Note the counts from

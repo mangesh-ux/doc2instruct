@@ -23,5 +23,6 @@ eval/custom/candidates_verified.csv
 eval/custom/cross_page_candidates.csv
 eval/custom/cross_page_candidates_wide.csv
 eval/custom/*.csv.bak
+corpus/train_smoke/
 eval/custom/results/
 eval/baselines/

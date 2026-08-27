@@ -1,6 +1,7 @@
 {
   "input_csv": [
     "eval\\custom\\cross_page_ablated.csv",
+    "eval\\custom\\cross_page_ablated_wide.csv",
     "eval\\custom\\candidates_v3.csv"
   ],
   "output_csv": "eval\\custom\\candidates_verified.csv",
@@ -14,50 +15,71 @@
   },
   "selection": {
     "target_single": 90,
-    "target_cross": 54,
+    "target_cross": 60,
     "valid_pool_single": 211,
-    "valid_pool_cross": 35
+    "valid_pool_cross": 73
   },
-  "total_rows": 573,
-  "accepted": 125,
+  "total_rows": 780,
+  "accepted": 150,
   "accepted_single_page": 90,
-  "accepted_cross_page": 35,
-  "cross_over_single_ratio": 0.389,
+  "accepted_cross_page": 60,
+  "cross_over_single_ratio": 0.667,
   "distinct_papers_accepted": 15,
   "per_paper_accepted": {
-    "2606.13178": 10,
-    "2606.13282": 6,
-    "2606.13285": 10,
-    "2606.13287": 9,
-    "2606.13370": 6,
-    "2606.13380": 15,
-    "2606.13382": 6,
-    "2606.13432": 7,
-    "2606.13461": 6,
-    "2606.13513": 10,
-    "2606.13568": 8,
-    "2606.13629": 13,
+    "2606.13178": 12,
+    "2606.13282": 7,
+    "2606.13285": 13,
+    "2606.13287": 10,
+    "2606.13370": 11,
+    "2606.13380": 13,
+    "2606.13382": 12,
+    "2606.13432": 8,
+    "2606.13461": 8,
+    "2606.13513": 12,
+    "2606.13568": 12,
+    "2606.13629": 12,
     "2606.13634": 5,
-    "2606.13637": 7,
+    "2606.13637": 8,
     "2606.13663": 7
   },
-  "evidence_coverage_mean_accepted": 0.999,
-  "evidence_exact_verbatim_accepted": 122,
+  "evidence_coverage_mean_accepted": 0.9979,
+  "evidence_exact_verbatim_accepted": 146,
   "accepted_by_source_csv": {
     "candidates_v3.csv": 90,
-    "cross_page_ablated.csv": 35
+    "cross_page_ablated.csv": 32,
+    "cross_page_ablated_wide.csv": 28
   },
   "reject_reason_counts": {
+    "upstream_reject": 246,
     "cross_page_not_ablation_verified": 136,
+    "valid_but_not_selected": 134,
     "evidence_not_in_source": 125,
-    "valid_but_not_selected": 121,
-    "upstream_reject": 116,
-    "evidence_not_on_its_own_page": 19,
-    "near_duplicate_question": 4,
+    "evidence_not_on_its_own_page": 53,
+    "near_duplicate_question": 9,
     "generic_question": 2,
     "evidence_too_short": 1
   },
   "rejected_samples": {
+    "near_duplicate_question": [
+      {
+        "paper_id": "2606.13178",
+        "pages": "1,2",
+        "question": "According to the paper, what is the exact quantitative expression for the frozen-transfer gap when transferring a Bayes-minimal representation for accuracy (zer",
+        "reason": "near_duplicate_question"
+      },
+      {
+        "paper_id": "2606.13285",
+        "pages": "19,20",
+        "question": "For the Dlinear model without ESE, how does the RMSE change when increasing the prediction horizon from 1 to 2, using 20 systems and an input length of 50?",
+        "reason": "near_duplicate_question"
+      },
+      {
+        "paper_id": "2606.13285",
+        "pages": "26",
+        "question": "What is the RMSE* for the PatchTST model with ESE at input length 200 and prediction horizon 10?",
+        "reason": "near_duplicate_question"
+      }
+    ],
     "evidence_not_in_source": [
       {
         "paper_id": "2606.13178",
@@ -107,35 +129,15 @@
       },
       {
         "paper_id": "2606.13178",
+        "pages": "11,12",
+        "question": "At the largest within-class probability variation (α = 0.23), what is the excess negative log-likelihood (NLL) of the oracle Bayes-class predictor S relative to",
+        "reason": "evidence_not_on_its_own_page(cov=0.80)"
+      },
+      {
+        "paper_id": "2606.13178",
         "pages": "12,13",
         "question": "At α = 0.23 in the learned bottleneck experiment, what is the observed difference in negative log likelihood (NLL) between the frozen hinge bottleneck and the f",
         "reason": "evidence_not_on_its_own_page(cov=0.70)"
-      },
-      {
-        "paper_id": "2606.13282",
-        "pages": "1,2",
-        "question": "What is the dimensionality of the Ethical Consequence Space (ECS) used by ERTS, and what is the main reason for choosing this specific value over alternatives?",
-        "reason": "evidence_not_on_its_own_page(cov=0.43)"
-      }
-    ],
-    "near_duplicate_question": [
-      {
-        "paper_id": "2606.13285",
-        "pages": "26",
-        "question": "What is the RMSE* for the PatchTST model with ESE at input length 200 and prediction horizon 10?",
-        "reason": "near_duplicate_question"
-      },
-      {
-        "paper_id": "2606.13285",
-        "pages": "36",
-        "question": "What is the computational cost (in minutes) for SCINet with and without ESE on the 320-region dataset and input length 100?",
-        "reason": "near_duplicate_question"
-      },
-      {
-        "paper_id": "2606.13285",
-        "pages": "37",
-        "question": "What is the computational cost (in minutes) for SCINet with and without ESE on the 320-region dataset for input length 100?",
-        "reason": "near_duplicate_question"
       }
     ],
     "evidence_too_short": [

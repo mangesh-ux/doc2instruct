@@ -162,8 +162,10 @@ def main() -> int:
         "pipeline": [
             "bootstrap_eval_set.py: page-text extraction + LLM-drafted candidates",
             "improve_candidates.py: rewrite under strict rubric (specific, verifiable, verbatim evidence)",
+            "build_cross_page_eval.py: one verbatim span per page + why_both_pages",
+            "ablate_cross_page.py: keep only items neither page A nor page B can answer",
             "verify_candidates.py: mechanical gate (verbatim evidence coverage, "
-            "generic-question filter, yes/no filter, dedup, cross-page term check) "
+            "generic-question filter, yes/no filter, dedup, per-page grounding) "
             "+ quota-balanced selection across papers",
             "finalize_eval_set.py: schema + provenance",
         ],
